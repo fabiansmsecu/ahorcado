@@ -144,21 +144,40 @@ Instrucciones críticas:
     if (isWon) {
       setGameState('won');
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      updateUserScore();
+      updateUserScore(true);
     } else if (isLost) {
       setGameState('lost');
+      updateUserScore(false);
     }
   }, [guessedLetters, mistakes, wordData, gameState]);
 
-  const updateUserScore = async () => {
+  const updateUserScore = async (won: boolean) => {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     const name = auth.currentUser.displayName || "Jugador";
 
+    if (won) {
+      try {
+        await saveUserScore(uid, name, 10);
+      } catch (error) {
+        console.warn("Could not save score:", error);
+      }
+    }
+
     try {
-      await saveUserScore(uid, name, 10);
-    } catch (error) {
-      console.warn("Could not save score:", error);
+      await fetch('/api/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          uid, 
+          name, 
+          won, 
+          word: wordData?.word, 
+          score: won ? 10 : 0 
+        })
+      });
+    } catch (e) {
+      console.warn("Could not update class stats:", e);
     }
   };
 

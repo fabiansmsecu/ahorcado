@@ -11,6 +11,86 @@ const PORT = 3000;
 
 app.use(express.json());
 
+// --- ESTADO GLOBAL DEL JUEGO Y ESTADÍSTICAS (SALON DE CLASES) ---
+let globalGameState = {
+  isActive: false,
+  mode: 'infantil',
+  customWords: null as any
+};
+
+let classStats = {
+  players: {} as Record<string, { name: string, score: number, gamesPlayed: number }>,
+  failedWords: {} as Record<string, number>,
+  totalGames: 0,
+  totalWins: 0
+};
+
+const TEACHER_PIN = process.env.TEACHER_PIN || "profe123";
+
+// Obtener el estado actual (para estudiantes)
+app.get("/api/game-state", (req, res) => {
+  res.json(globalGameState);
+});
+
+// Actualizar el estado (solo profesor)
+app.post("/api/game-state", (req, res) => {
+  const { pin, mode, customWords, isActive } = req.body;
+  if (pin !== TEACHER_PIN) {
+    return res.status(403).json({ error: "PIN incorrecto" });
+  }
+  globalGameState = { isActive, mode, customWords };
+  res.json({ success: true, state: globalGameState });
+});
+
+// Guardar resultados de una partida (estudiantes)
+app.post("/api/stats", (req, res) => {
+  const { uid, name, won, word, score } = req.body;
+  
+  if (uid && name) {
+    if (!classStats.players[uid]) {
+      classStats.players[uid] = { name, score: 0, gamesPlayed: 0 };
+    }
+    classStats.players[uid].gamesPlayed += 1;
+    classStats.players[uid].score += score || 0;
+    // Keep name updated
+    classStats.players[uid].name = name;
+  }
+
+  classStats.totalGames += 1;
+  if (won) {
+    classStats.totalWins += 1;
+  } else if (word) {
+    classStats.failedWords[word] = (classStats.failedWords[word] || 0) + 1;
+  }
+
+  res.json({ success: true });
+});
+
+// Obtener estadísticas (solo profesor)
+app.get("/api/stats", (req, res) => {
+  const pin = req.query.pin;
+  if (pin !== TEACHER_PIN) {
+    return res.status(403).json({ error: "PIN incorrecto" });
+  }
+  res.json(classStats);
+});
+
+// Reiniciar estadísticas (solo profesor)
+app.post("/api/stats/reset", (req, res) => {
+  const { pin } = req.body;
+  if (pin !== TEACHER_PIN) {
+    return res.status(403).json({ error: "PIN incorrecto" });
+  }
+  classStats = {
+    players: {},
+    failedWords: {},
+    totalGames: 0,
+    totalWins: 0
+  };
+  res.json({ success: true });
+});
+// ------------------------------------------------
+
 app.post("/api/generate-keywords", async (req, res) => {
   try {
     const { promptInstructions } = req.body;
