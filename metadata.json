@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Ahorcado Adaptativo",
+  "description": "Juego del ahorcado con niveles para niños y universitarios. Usa IA para generar palabras y Firebase para el ranking de jugadores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

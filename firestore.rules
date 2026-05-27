@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (auth.uid)
+    // Fields:
+    //   - name: string (required, max 50 chars) - Player's name
+    //   - score: number (required, >= 0) - Player's total points
+    //   - uid: string (required) - immutable after creation
+    //
+    // ===============================================================
+
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Verify UID hasn't been tampered with on create
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    // Ensure uid field is not modified on update
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    // Validate required fields exist
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Valid User
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['name', 'score', 'uid']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
+             data.score is number && data.score >= 0 &&
+             data.uid is string;
+    }
+
+    // Allow user collection read for leaderboard (all users can view the ranking)
+    // Actually, only authenticated users can see the leaderboard.
+    // Also, allow a user to update their own score.
+    // However, updating own score is technically vulnerable to self-inflation, 
+    // but without Cloud Functions, we allow the client to update it for game logic since this is a prototype game.
+    function isValidUpdate(docId) {
+      // Must be owner
+      return isOwner(docId) && 
+             isValidUser(request.resource.data) &&
+             uidNotModified() &&
+             // Name shouldn't change ideally or only within limits, score must be a number
+             // the increment logic can just be score >= old score
+             request.resource.data.score >= resource.data.score;
+    }
+
+    match /users/{userId} {
+      // Read access: Authenticated users can view user details to form the leaderboard
+      allow read: if isAuthenticated();
+      
+      // Create access: Users can create their own profile
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged() && request.resource.data.uid == userId;
+      
+      // Update access: Users can update their score
+      allow update: if isValidUpdate(userId);
+    }
+  }
+}

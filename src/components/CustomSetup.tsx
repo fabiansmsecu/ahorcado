@@ -1,0 +1,197 @@
+import React, { useState } from 'react';
+import { cn } from '../lib/utils';
+import { BookOpen, FileText, Loader2 } from 'lucide-react';
+
+interface CustomSetupProps {
+  onStart: (words: { word: string; hint: string }[], mode: string) => void;
+  onBack: () => void;
+}
+
+export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => {
+  const [text, setText] = useState('');
+  const [inputType, setInputType] = useState<'text' | 'words'>('text');
+  const [mode, setMode] = useState<'infantil' | 'universitario'>('universitario');
+  const [wordCount, setWordCount] = useState<number>(10);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    if (!text.trim()) {
+      setError("Por favor, ingresa algún texto o palabras.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const difficultyDesc = mode === 'infantil' 
+        ? 'niños de 7 a 10 años (lenguaje muy sencillo, pistas muy claras)'
+        : 'estudiantes universitarios (conceptos avanzados, pistas intelectuales)';
+      
+      const inputDesc = inputType === 'words'
+        ? 'Una lista de palabras explícitas proporcionadas por el usuario. Selecciona las mejores o utilízalas todas si son pocas.'
+        : 'Un bloque de texto o lección de estudio. Extrae los conceptos clave.';
+
+      const promptInstructions = `A partir del siguiente texto, extrae HASTA un MÁXIMO de ${wordCount} palabras clave para un juego del ahorcado.
+Audiencia: ${difficultyDesc}.
+Retorna exactamente UNA palabra por línea, separada de su pista con un pipe (|).
+Ejemplo:
+PALABRA|Pista muy corta aquí.
+OTRAPALABRA|Otra pista corta aquí.
+
+Instrucciones críticas de formato para cada línea:
+1. La palabra ANTES del pipe debe ser UNA SOLA PALABRA, en MAYÚSCULAS, SIN TILDES, SIN ESPACIOS, SIN SÍMBOLOS.
+2. La pista DESPUÉS del pipe debe ser MUY CORTA (máximo 6 palabras).
+3. No incluyas nada más en tu respuesta. Sin markdown, sin introducciones ni conclusiones. Procesalo velozmente.
+
+Texto fuente:
+${text}`;
+
+      const response = await fetch('/api/generate-keywords', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promptInstructions })
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+      const dataJson = await response.json();
+      const responseText = dataJson.text || "";
+      const lines = responseText.split('\n').map(l => l.trim()).filter(l => l.includes('|'));
+      
+      const data = {
+        words: lines.map(line => {
+          const [word, ...hintParts] = line.split('|');
+          return { word: word.trim(), hint: hintParts.join('|').trim() };
+        })
+      };
+
+      if (data.words && Array.isArray(data.words) && data.words.length > 0) {
+        // Enforce formatting
+        const cleanedWords = data.words.map((w: any) => ({
+          word: w.word.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, ""),
+          hint: w.hint
+        })).filter((w: any) => w.word.length > 0);
+        
+        if (cleanedWords.length === 0) throw new Error("No se encontraron palabras válidas en la respuesta de la IA.");
+        
+        onStart(cleanedWords, mode);
+      } else {
+        throw new Error("El formato de respuesta de la IA fue incorrecto o está vacío.");
+      }
+
+    } catch (err: any) {
+      console.error("Error generating text:", err);
+      setError(`Ocurrió un error al procesar: ${err.message || "Error desconocido"}. Comprueba la conexión o intenta con un texto más corto.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-3xl mx-auto p-4 space-y-8 mt-4 animate-in fade-in slide-in-from-bottom-4">
+      <div className="flex items-center space-x-4 mb-8">
+        <button onClick={onBack} className="brutal-btn bg-white px-4 py-2">
+          ← Volver
+        </button>
+        <h2 className="text-3xl font-black uppercase text-[var(--dark)] flex items-center gap-2">
+          <BookOpen className="text-[var(--primary)] w-8 h-8" />
+          Crear Lección
+        </h2>
+      </div>
+
+      <div className="brutal-box p-6 md:p-8 space-y-6 bg-[var(--white)]">
+        <div className="space-y-4">
+          <label className="font-black text-[var(--dark)] text-lg uppercase flex items-center gap-2">
+            1. Origen de las Palabras
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <button 
+              className={cn("brutal-btn py-3 text-sm flex items-center justify-center gap-2", inputType === 'text' ? "bg-[var(--accent)]" : "bg-white text-gray-500")}
+              onClick={() => setInputType('text')}
+            >
+              <FileText className="w-4 h-4" /> Texto de Estudio
+            </button>
+            <button 
+              className={cn("brutal-btn py-3 text-sm flex items-center justify-center gap-2", inputType === 'words' ? "bg-[var(--accent)]" : "bg-white text-gray-500")}
+              onClick={() => setInputType('words')}
+            >
+              <BookOpen className="w-4 h-4" /> Lista Manual
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <label className="font-black text-[var(--dark)] text-lg uppercase">
+            2. Pega tu contenido aquí
+          </label>
+          <textarea 
+            className="w-full h-32 p-4 brutal-box resize-none outline-none focus:border-[var(--primary)] text-lg font-medium"
+            placeholder={inputType === 'text' ? "Pega aquí un fragmento de texto, artículo o lección..." : "Pega aquí palabras separadas por comas o saltos de línea..."}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            disabled={loading}
+          />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <label className="font-black text-[var(--dark)] text-lg uppercase">3. Dificultad</label>
+            <div className="flex gap-4">
+              <button 
+                className={cn("flex-1 brutal-btn py-2 text-sm", mode === 'infantil' ? "bg-[var(--secondary)] text-white" : "bg-white")}
+                onClick={() => setMode('infantil')}
+              >
+                Infantil
+              </button>
+              <button 
+                className={cn("flex-1 brutal-btn py-2 text-sm", mode === 'universitario' ? "bg-[var(--primary)] text-white" : "bg-white")}
+                onClick={() => setMode('universitario')}
+              >
+                Universidad
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <label className="font-black text-[var(--dark)] text-lg uppercase">4. Cantidad</label>
+            <select 
+              className="w-full p-3 brutal-box bg-white font-bold outline-none cursor-pointer"
+              value={wordCount}
+              onChange={(e) => setWordCount(Number(e.target.value))}
+            >
+              <option value={5}>5 Palabras</option>
+              <option value={10}>10 Palabras</option>
+              <option value={15}>15 Palabras</option>
+              <option value={20}>20 Palabras</option>
+            </select>
+          </div>
+        </div>
+
+        {error && (
+          <div className="p-4 bg-red-100 border-2 border-red-500 rounded-xl font-bold text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div className="pt-4">
+          <button 
+            className="w-full brutal-btn bg-[var(--primary)] text-white flex items-center justify-center gap-3 py-4 text-xl"
+            onClick={handleGenerate}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin" />
+                Procesando lección con IA...
+              </>
+            ) : (
+              "GENERAR Y JUGAR"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
