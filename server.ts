@@ -15,7 +15,8 @@ app.use(express.json());
 let globalGameState = {
   isActive: false,
   mode: 'infantil',
-  customWords: null as any
+  customWords: null as any,
+  sessionId: Date.now().toString()
 };
 
 let classStats = {
@@ -34,11 +35,14 @@ app.get("/api/game-state", (req, res) => {
 
 // Actualizar el estado (solo profesor)
 app.post("/api/game-state", (req, res) => {
-  const { pin, mode, customWords, isActive } = req.body;
+  const { pin, mode, customWords, isActive, forceRestart } = req.body;
   if (pin !== TEACHER_PIN) {
     return res.status(403).json({ error: "PIN incorrecto" });
   }
-  globalGameState = { isActive, mode, customWords };
+
+  const newSessionId = forceRestart ? Date.now().toString() : (isActive !== globalGameState.isActive || mode !== globalGameState.mode || customWords !== globalGameState.customWords ? Date.now().toString() : globalGameState.sessionId);
+
+  globalGameState = { isActive, mode, customWords, sessionId: newSessionId };
   res.json({ success: true, state: globalGameState });
 });
 

@@ -14,7 +14,8 @@ type AppRole = 'student' | 'teacher' | null;
 export default function App() {
   const [curScreen, setCurScreen] = useState<Screen>('menu');
   const [role, setRole] = useState<AppRole>(null);
-  const [globalState, setGlobalState] = useState<{isActive: boolean, mode: string, customWords: any}>({isActive: false, mode: 'infantil', customWords: null});
+  const [globalState, setGlobalState] = useState<{isActive: boolean, mode: string, customWords: any, sessionId: string}>({isActive: false, mode: 'infantil', customWords: null, sessionId: ''});
+  const [currentSession, setCurrentSession] = useState('');
 
   const [mode, setMode] = useState<GameMode>('infantil');
   const [user, setUser] = useState<any | null>(null);
@@ -44,21 +45,30 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  // Poll global state every 3 seconds
   useEffect(() => {
-    // Poll global state every 3 seconds
     const fetchState = async () => {
       try {
         const res = await fetch('/api/game-state');
         if (res.ok) {
           const data = await res.json();
           setGlobalState(data);
+          
+          // Force kick out students if teacher restared session
+          if (data.sessionId && currentSession && data.sessionId !== currentSession && curScreen === 'game' && role === 'student') {
+             setCurScreen('menu');
+             showToast("¡El profesor ha iniciado una nueva lección!");
+          }
+          if (data.sessionId) {
+             setCurrentSession(data.sessionId);
+          }
         }
       } catch (e) {}
     };
     fetchState();
     const interval = setInterval(fetchState, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [curScreen, currentSession, role]);
 
   const startGame = (m: GameMode, words?: {word: string, hint: string}[]) => {
     setMode(m);
@@ -211,7 +221,27 @@ export default function App() {
               </div>
               
               {globalState.isActive && (
-                <div className="mt-6 relative z-10">
+                <div className="mt-6 flex flex-col md:flex-row justify-center items-center gap-4 relative z-10">
+                  <button 
+                    onClick={async () => {
+                       await fetch('/api/game-state', {
+                         method: 'POST',
+                         headers: {'Content-Type': 'application/json'},
+                         body: JSON.stringify({ 
+                           pin: localStorage.getItem('teacher_pin'), 
+                           isActive: true, 
+                           mode: globalState.mode, 
+                           customWords: globalState.customWords,
+                           forceRestart: true 
+                         })
+                       });
+                       showToast("¡Lección reiniciada para todos los estudiantes!");
+                    }}
+                    className="brutal-btn bg-white text-[var(--dark)] text-sm px-6 py-3 cursor-pointer shadow-[3px_3px_0_0_#000]"
+                  >
+                    Re-enviar (Reiniciar todos)
+                  </button>
+
                   <button 
                     onClick={async () => {
                        await fetch('/api/game-state', {
@@ -222,7 +252,7 @@ export default function App() {
                     }}
                     className="brutal-btn bg-[#ff4d4d] text-white text-sm px-6 py-3 cursor-pointer"
                   >
-                    Detener Juego (Vuelve a sala de espera)
+                    Detener Juego (Volver a sala)
                   </button>
                 </div>
               )}
