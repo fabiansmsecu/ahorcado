@@ -4,11 +4,12 @@ import { Game } from './components/Game';
 import { Leaderboard } from './components/Leaderboard';
 import { CustomSetup } from './components/CustomSetup';
 import { ClassStatsView } from './components/ClassStatsView';
+import { UserProfileView } from './components/UserProfileView';
 import { auth, loginWithGoogle, logout, onAuthStateChanged, isFallbackMode, loginWithNickname } from './firebase';
 import { cn } from './lib/utils';
-import { Trophy, LogIn, LogOut, Play, GraduationCap, BookOpen, AlertCircle, Sparkles, User, Settings, BarChart } from 'lucide-react';
+import { Trophy, LogIn, LogOut, Play, GraduationCap, BookOpen, AlertCircle, Sparkles, User, Settings, BarChart, UserCircle } from 'lucide-react';
 
-type Screen = 'menu' | 'game' | 'leaderboard' | 'setup' | 'stats';
+type Screen = 'menu' | 'game' | 'leaderboard' | 'setup' | 'stats' | 'profile';
 type AppRole = 'student' | 'teacher' | null;
 
 export default function App() {
@@ -124,7 +125,7 @@ export default function App() {
           ) : (
             role && <button 
               onClick={() => setShowLoginModal(true)} 
-              className="flex items-center gap-2 bg-[var(--accent)] border-[2px] border-[var(--dark)] px-4 py-2 rounded-[12px] font-bold hover:brightness-95 cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-y-[-1px] transition-all"
+              className="flex items-center gap-2 bg-[var(--accent)] border-[2px] border-[var(--dark)] px-4 py-2 rounded-[12px] font-bold hover:brightness-95 cursor-pointer shadow-[2px_2px_0px_rgba(27,26,25,1)] hover:translate-y-[-1px] transition-all"
             >
               <LogIn className="w-4 h-4" />
               <span>Ingresar</span>
@@ -136,7 +137,7 @@ export default function App() {
       {/* Fallback indicator */}
       {isFallbackMode && (
         <div className="text-center mb-8">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[50px] border-2 border-[var(--dark)] bg-[var(--accent)] text-xs font-black uppercase text-[var(--dark)] shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[50px] border-2 border-[var(--dark)] bg-[var(--accent)] text-xs font-black uppercase text-[var(--dark)] shadow-[2px_2px_0px_rgba(27,26,25,1)]">
             <Sparkles className="w-3.5 h-3.5 text-[var(--primary)] animate-pulse" />
             Modo Local Activo (Offline)
           </span>
@@ -181,7 +182,7 @@ export default function App() {
               <div className="brutal-box p-12 bg-white flex flex-col items-center">
                 <h2 className="text-4xl font-black uppercase text-[var(--primary)] mb-4">¡El profesor ha iniciado!</h2>
                 <p className="font-bold opacity-70 mb-8 text-xl">
-                  Modalidad: <span className="uppercase badge bg-[var(--accent)] px-3 py-1 rounded-full border-2 border-black ml-2 shadow-[2px_2px_0_0_#000]">{globalState.mode === 'infantil' ? 'Infantil' : globalState.mode === 'universitario' ? 'Universitario' : 'Lección Propia'}</span>
+                  Modalidad: <span className="uppercase badge bg-[var(--accent)] px-3 py-1 rounded-full border-2 border-black ml-2 shadow-[2px_2px_0_0_var(--dark)]">{globalState.mode === 'infantil' ? 'Infantil' : globalState.mode === 'universitario' ? 'Universitario' : 'Lección Propia'}</span>
                 </p>
                 <button 
                    onClick={() => startGame(globalState.mode as GameMode, globalState.customWords)}
@@ -198,13 +199,21 @@ export default function App() {
               </div>
             )}
             
-            <div className="mt-8 flex justify-center">
+            <div className="mt-8 flex flex-col items-center gap-4">
               <button 
                 onClick={() => setCurScreen('leaderboard')}
-                className="flex items-center gap-3 brutal-btn bg-[var(--white)] cursor-pointer hover:bg-gray-50 shadow-[4px_4px_0px_rgba(0,0,0,1)] text-sm py-3"
+                className="flex w-full max-w-sm items-center justify-center gap-3 brutal-btn bg-[var(--white)] cursor-pointer hover:bg-gray-50 shadow-[4px_4px_0px_rgba(27,26,25,1)] text-sm py-3"
               >
                 <Trophy className="w-5 h-5 text-[var(--secondary)]" />
                 Ver Cartelera de Puntajes
+              </button>
+
+              <button 
+                onClick={() => setCurScreen('profile')}
+                className="flex w-full max-w-sm items-center justify-center gap-3 brutal-btn bg-[var(--primary)] text-white cursor-pointer hover:brightness-105 shadow-[4px_4px_0px_rgba(27,26,25,1)] text-sm py-3"
+              >
+                <UserCircle className="w-5 h-5 text-white" />
+                Ver mi Perfil y Logros
               </button>
             </div>
           </div>
@@ -213,7 +222,7 @@ export default function App() {
         {curScreen === 'menu' && role === 'teacher' && (
           <div className="max-w-4xl mx-auto flex flex-col items-center p-4 space-y-8 w-full animate-in fade-in">
             
-            <div className="w-full bg-[var(--accent)] p-6 rounded-2xl border-4 border-black text-center shadow-[6px_6px_0_0_#000] relative overflow-hidden">
+            <div className="w-full bg-[var(--accent)] p-6 rounded-2xl border-4 border-black text-center shadow-[6px_6px_0_0_var(--dark)] relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-20"><Settings className="w-24 h-24 rotate-12" /></div>
               <h2 className="text-2xl font-black uppercase text-[var(--dark)] relative z-10">Panel del Profesor</h2>
               <div className="font-bold mt-3 text-lg bg-white/50 inline-block px-6 py-2 rounded-full border-2 border-black relative z-10">
@@ -237,7 +246,7 @@ export default function App() {
                        });
                        showToast("¡Lección reiniciada para todos los estudiantes!");
                     }}
-                    className="brutal-btn bg-white text-[var(--dark)] text-sm px-6 py-3 cursor-pointer shadow-[3px_3px_0_0_#000]"
+                    className="brutal-btn bg-white text-[var(--dark)] text-sm px-6 py-3 cursor-pointer shadow-[3px_3px_0_0_var(--dark)]"
                   >
                     Re-enviar (Reiniciar todos)
                   </button>
@@ -271,7 +280,7 @@ export default function App() {
               {/* Infantil Mode Card */}
               <button 
                 onClick={() => publishGame('infantil')}
-                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(0,0,0,0.15)] text-left relative overflow-hidden cursor-pointer"
+                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(27,26,25,0.15)] text-left relative overflow-hidden cursor-pointer"
               >
                 <div className="w-16 h-16 bg-[var(--accent)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6">
                   <Play className="w-8 h-8 text-[var(--dark)]" />
@@ -283,7 +292,7 @@ export default function App() {
               {/* Universitario Mode Card */}
               <button 
                 onClick={() => publishGame('universitario')}
-                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(0,0,0,0.15)] text-left relative overflow-hidden cursor-pointer"
+                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(27,26,25,0.15)] text-left relative overflow-hidden cursor-pointer"
               >
                 <div className="w-16 h-16 bg-[var(--secondary)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6 text-white">
                   <GraduationCap className="w-8 h-8" />
@@ -295,7 +304,7 @@ export default function App() {
               {/* Custom Lesson Card */}
               <button 
                 onClick={() => setCurScreen('setup')}
-                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(0,0,0,0.15)] text-left relative overflow-hidden cursor-pointer"
+                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(27,26,25,0.15)] text-left relative overflow-hidden cursor-pointer"
               >
                 <div className="w-16 h-16 bg-[var(--primary)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6 text-white">
                   <BookOpen className="w-8 h-8" />
@@ -308,14 +317,14 @@ export default function App() {
             <div className="mt-8 flex flex-col md:flex-row justify-center w-full pb-8 gap-4">
               <button 
                 onClick={() => setCurScreen('stats')}
-                className="flex items-center justify-center gap-3 brutal-btn bg-[var(--accent)] cursor-pointer shadow-[4px_4px_0px_rgba(0,0,0,1)] text-sm py-3"
+                className="flex items-center justify-center gap-3 brutal-btn bg-[var(--accent)] cursor-pointer shadow-[4px_4px_0px_rgba(27,26,25,1)] text-sm py-3"
               >
                 <BarChart className="w-5 h-5 text-[var(--dark)]" />
                 Estadísticas del Aula
               </button>
               <button 
                 onClick={() => setCurScreen('leaderboard')}
-                className="flex items-center justify-center gap-3 brutal-btn bg-[var(--white)] cursor-pointer hover:bg-gray-50 shadow-[4px_4px_0px_rgba(0,0,0,1)] text-sm py-3"
+                className="flex items-center justify-center gap-3 brutal-btn bg-[var(--white)] cursor-pointer hover:bg-gray-50 shadow-[4px_4px_0px_rgba(27,26,25,1)] text-sm py-3"
               >
                 <Trophy className="w-5 h-5 text-[var(--secondary)]" />
                 Ver Ranking de la Clase
@@ -326,6 +335,10 @@ export default function App() {
 
         {curScreen === 'stats' && role === 'teacher' && (
           <ClassStatsView onBack={() => setCurScreen('menu')} />
+        )}
+
+        {curScreen === 'profile' && (
+          <UserProfileView onBack={() => setCurScreen('menu')} />
         )}
 
         {curScreen === 'setup' && (
@@ -408,7 +421,7 @@ export default function App() {
 
               <button 
                 type="submit"
-                className="w-full brutal-btn bg-[var(--secondary)] text-white hover:brightness-105 active:scale-95 transition-all text-sm py-3 cursor-pointer shadow-[3px_3px_0px_rgba(0,0,0,1)] font-black uppercase"
+                className="w-full brutal-btn bg-[var(--secondary)] text-white hover:brightness-105 active:scale-95 transition-all text-sm py-3 cursor-pointer shadow-[3px_3px_0px_rgba(27,26,25,1)] font-black uppercase"
               >
                 ¡Listo!
               </button>
@@ -422,7 +435,7 @@ export default function App() {
                     await loginWithGoogle();
                     setShowLoginModal(false);
                   }}
-                  className="w-full brutal-btn bg-[var(--accent)] text-[var(--dark)] flex items-center justify-center gap-2 hover:brightness-95 py-3 text-sm cursor-pointer shadow-[3px_3px_0px_rgba(0,0,0,1)] font-bold uppercase border-[3px]"
+                  className="w-full brutal-btn bg-[var(--accent)] text-[var(--dark)] flex items-center justify-center gap-2 hover:brightness-95 py-3 text-sm cursor-pointer shadow-[3px_3px_0px_rgba(27,26,25,1)] font-bold uppercase border-[3px]"
                 >
                   Unirse con Google
                 </button>
@@ -476,7 +489,7 @@ export default function App() {
 
               <button 
                 type="submit"
-                className="w-full brutal-btn bg-[var(--primary)] text-white hover:brightness-105 active:scale-95 transition-all text-sm py-3 cursor-pointer shadow-[3px_3px_0px_rgba(0,0,0,1)] font-black uppercase"
+                className="w-full brutal-btn bg-[var(--primary)] text-white hover:brightness-105 active:scale-95 transition-all text-sm py-3 cursor-pointer shadow-[3px_3px_0px_rgba(27,26,25,1)] font-black uppercase"
               >
                 Entrar
               </button>
@@ -489,7 +502,7 @@ export default function App() {
       {feedbackMsg && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5">
           <div className={cn(
-            "px-6 py-3 font-black uppercase shadow-[4px_4px_0_0_#000] border-[3px] border-black text-sm",
+            "px-6 py-3 font-black uppercase shadow-[4px_4px_0_0_var(--dark)] border-[3px] border-black text-sm",
             feedbackMsg.isError ? "bg-red-400 text-white" : "bg-green-400 text-black"
           )}>
             {feedbackMsg.text}

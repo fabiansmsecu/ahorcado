@@ -74,6 +74,7 @@ app.post("/api/stats", (req, res) => {
 app.get("/api/stats", (req, res) => {
   const pin = req.query.pin;
   if (pin !== TEACHER_PIN) {
+    console.log("Teacher pin mismatch in GET /api/stats. Expected:", TEACHER_PIN, "Got:", pin);
     return res.status(403).json({ error: "PIN incorrecto" });
   }
   res.json(classStats);

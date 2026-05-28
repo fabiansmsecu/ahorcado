@@ -29,7 +29,7 @@ export const Game: React.FC<GameProps> = ({ mode, onBack, customWords }) => {
   );
 
   const isKids = mode === 'infantil';
-  const maxMistakes = 6;
+  const maxMistakes = 3;
 
   const INFANTIL_WORDS = [
     { word: "GATO", hint: "Animal que maúlla y caza ratones" },
@@ -44,12 +44,15 @@ export const Game: React.FC<GameProps> = ({ mode, onBack, customWords }) => {
     { word: "CASA", hint: "Lugar donde vives con tu familia" }
   ];
 
+  const [startTime, setStartTime] = useState<number>(0);
+
   const fetchWord = async () => {
     setLoading(true);
     setWordData(null);
     setGuessedLetters(new Set());
     setMistakes(0);
     setGameState('playing');
+    setStartTime(Date.now());
 
     if (remainingCustomWords !== null) {
       if (remainingCustomWords.length === 0) {
@@ -155,13 +158,19 @@ Instrucciones críticas:
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     const name = auth.currentUser.displayName || "Jugador";
-
+    const timeSpent = Math.floor((Date.now() - startTime) / 1000); // in seconds
+    
+    // Points based on time and mistakes: base 10 + time bonus 
+    let points = won ? 10 : 0;
     if (won) {
-      try {
-        await saveUserScore(uid, name, 10);
-      } catch (error) {
-        console.warn("Could not save score:", error);
-      }
+        if (timeSpent < 10) points += 5; // Fast guess!
+        if (mistakes === 0) points += 5; // Perfect execution
+    }
+
+    try {
+      await saveUserScore(uid, name, points, won, wordData?.word, timeSpent);
+    } catch (error) {
+      console.warn("Could not save score:", error);
     }
 
     try {
@@ -260,7 +269,7 @@ Instrucciones críticas:
                   onClick={() => handleGuess(char)}
                   className={cn(
                     "aspect-square flex justify-center items-center font-bold text-lg rounded-lg transition-transform",
-                    !guessed && "bg-[var(--bg-color)] border-2 border-[var(--dark)] hover:scale-105 active:scale-95 cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,0.1)]",
+                    !guessed && "bg-[var(--bg-color)] border-2 border-[var(--dark)] hover:scale-105 active:scale-95 cursor-pointer shadow-[2px_2px_0px_rgba(27,26,25,0.1)]",
                     guessed && isCorrect && "bg-[var(--secondary)] text-white border-2 border-[var(--dark)] scale-95",
                     guessed && !isCorrect && "bg-[#E0E0E0] text-[#999] border-2 border-dashed border-[#999] scale-95 cursor-not-allowed"
                   )}
@@ -284,7 +293,7 @@ Instrucciones críticas:
             <p className="text-3xl font-black mb-8 tracking-widest uppercase text-[var(--dark)]">
               {wordData.word}
             </p>
-            {gameState === 'won' && <p className="text-sm font-bold bg-[var(--accent)] border-2 border-[var(--dark)] text-[var(--dark)] p-2 rounded-lg mb-6 shadow-[2px_2px_0px_rgba(0,0,0,0.1)]">+10 Puntos</p>}
+            {gameState === 'won' && <p className="text-sm font-bold bg-[var(--accent)] border-2 border-[var(--dark)] text-[var(--dark)] p-2 rounded-lg mb-6 shadow-[2px_2px_0px_rgba(27,26,25,0.1)]">+10 Puntos</p>}
             
             <button 
               onClick={fetchWord}

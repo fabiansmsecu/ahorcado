@@ -39,24 +39,33 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBack }) => {
         </h2>
       </div>
 
-      <div className="brutal-box bg-[var(--dark)] text-white overflow-hidden p-6 md:p-10 flex flex-col gap-6">
-        <div style={{fontWeight: 'bold', fontSize: '18px', color: 'var(--white)'}}>TOP JUGADORES:</div>
+      <div className="brutal-box bg-[var(--white)] text-[var(--dark)] overflow-hidden p-6 md:p-10 flex flex-col gap-6">
+        <div style={{fontWeight: 'bold', fontSize: '18px', color: 'var(--dark)'}}>TOP JUGADORES:</div>
         
         {loading ? (
-          <div className="p-8 text-center text-gray-400 font-bold">Cargando ranking...</div>
+          <div className="p-8 text-center text-gray-500 font-bold">Cargando ranking...</div>
         ) : users.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 font-bold">Aún no hay puntuaciones registradas. ¡Sé el primero!</div>
+          <div className="p-8 text-center text-gray-500 font-bold">Aún no hay puntuaciones registradas. ¡Sé el primero!</div>
         ) : (
           <div className="flex flex-col gap-4">
-             {users.map((user, idx) => (
-                <div key={user.uid} className="flex gap-4 text-lg items-center bg-white/5 border border-white/10 p-4 rounded-xl">
-                  <div className="w-8 font-black opacity-60">#{idx + 1}</div>
-                  <div className="flex-1 font-bold">{user.name}</div>
-                  <div className="text-[var(--accent)] font-black text-xl">
+             {users.map((user, idx) => {
+               // Assign alternating colors for top 3
+               let bgColor = "var(--white)";
+               let textColor = "var(--dark)";
+               if (idx === 0) { bgColor = "var(--primary)"; textColor = "var(--white)"; }
+               else if (idx === 1) { bgColor = "var(--secondary)"; textColor = "var(--white)"; }
+               else if (idx === 2) { bgColor = "var(--accent)"; textColor = "var(--dark)"; }
+
+               return (
+                <div key={user.uid} className="flex gap-4 text-lg items-center border-[3px] border-[var(--dark)] shadow-[3px_3px_0px_rgba(47,47,47,1)] p-4 rounded-xl" style={{ backgroundColor: bgColor, color: textColor }}>
+                  <div className="w-8 font-black text-xl">#{idx + 1}</div>
+                  <div className="flex-1 font-bold text-xl">{user.name}</div>
+                  <div className="font-black text-2xl">
                     {user.score} pts
                   </div>
                 </div>
-             ))}
+               );
+             })}
           </div>
         )}
       </div>

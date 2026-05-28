@@ -16,18 +16,21 @@ export const HangmanFigure: React.FC<HangmanFigureProps> = ({ mistakes, mode }) 
   const figureStrokeWidth = 6;
 
   const parts = [
-    // 1. Head
-    <motion.circle key="head" cx="130" cy="80" r="20" stroke="var(--primary)" strokeWidth={figureStrokeWidth} fill="white" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} />,
-    // 2. Torso
-    <motion.line key="torso" x1="130" y1="100" x2="130" y2="160" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />,
-    // 3. Left Arm
-    <motion.line key="l-arm" x1="130" y1="115" x2="100" y2="140" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />,
-    // 4. Right Arm
-    <motion.line key="r-arm" x1="130" y1="115" x2="160" y2="140" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />,
-    // 5. Left Leg
-    <motion.line key="l-leg" x1="130" y1="160" x2="110" y2="200" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />,
-    // 6. Right Leg
-    <motion.line key="r-leg" x1="130" y1="160" x2="150" y2="200" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />
+    // Mistake 1: Head and Torso
+    <g key="mistake-1">
+      <motion.circle cx="130" cy="80" r="20" stroke="var(--primary)" strokeWidth={figureStrokeWidth} fill="white" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} />
+      <motion.line x1="130" y1="100" x2="130" y2="160" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />
+    </g>,
+    // Mistake 2: Arms
+    <g key="mistake-2">
+      <motion.line x1="130" y1="115" x2="100" y2="140" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />
+      <motion.line x1="130" y1="115" x2="160" y2="140" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />
+    </g>,
+    // Mistake 3: Legs
+    <g key="mistake-3">
+      <motion.line x1="130" y1="160" x2="110" y2="200" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />
+      <motion.line x1="130" y1="160" x2="150" y2="200" stroke="var(--primary)" strokeWidth={figureStrokeWidth} initial={{ opacity: 0, pathLength: 0 }} animate={{ opacity: 1, pathLength: 1 }} />
+    </g>
   ];
 
   return (
@@ -41,9 +44,9 @@ export const HangmanFigure: React.FC<HangmanFigureProps> = ({ mistakes, mode }) 
         {parts.slice(0, mistakes)}
       </svg>
       
-      {mistakes > 0 && mistakes < 6 && (
+      {mistakes > 0 && mistakes < 3 && (
         <div className="absolute bottom-4 font-black text-sm uppercase" style={{color: 'var(--primary)'}}>
-          ¡Cuidado! Te quedan {6 - mistakes} intentos
+          ¡Cuidado! Te quedan {3 - mistakes} intentos
         </div>
       )}
     </div>

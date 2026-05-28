@@ -120,19 +120,51 @@ function getLocalScores(): UserProfile[] {
 }
 
 // Add local score
-function addLocalScore(uid: string, name: string, scoreToAdd: number): number {
+function addLocalScore(uid: string, name: string, scoreToAdd: number, won?: boolean, word?: string, timeSpent?: number): number {
   const scores = getLocalScores();
   const existingIndex = scores.findIndex(s => s.uid === uid);
   let finalScore = scoreToAdd;
   
+  const currentStats = existingIndex !== -1 && scores[existingIndex].stats ? scores[existingIndex].stats : {
+    gamesPlayed: 0,
+    gamesWon: 0,
+    totalTime: 0,
+    wordsGuessed: [] as string[],
+    achievements: [] as string[]
+  };
+
+  if (won !== undefined) {
+    currentStats.gamesPlayed += 1;
+    if (won) currentStats.gamesWon += 1;
+    if (timeSpent) currentStats.totalTime += timeSpent;
+    if (won && word && !currentStats.wordsGuessed.includes(word)) {
+      currentStats.wordsGuessed.push(word);
+    }
+    
+    // Check for new achievements
+    if (currentStats.gamesWon >= 1 && !currentStats.achievements.includes('Primer Triunfo')) {
+      currentStats.achievements.push('Primer Triunfo');
+    }
+    if (currentStats.gamesWon >= 5 && !currentStats.achievements.includes('Imparable')) {
+      currentStats.achievements.push('Imparable');
+    }
+    if (currentStats.gamesWon >= 10 && !currentStats.achievements.includes('Maestro del Vocabulario')) {
+      currentStats.achievements.push('Maestro del Vocabulario');
+    }
+    if (currentStats.wordsGuessed.length >= 20 && !currentStats.achievements.includes('Diccionario Andante')) {
+      currentStats.achievements.push('Diccionario Andante');
+    }
+  }
+
   if (existingIndex !== -1) {
     scores[existingIndex].score += scoreToAdd;
     finalScore = scores[existingIndex].score;
+    scores[existingIndex].stats = currentStats;
     if (name) {
       scores[existingIndex].name = name;
     }
   } else {
-    scores.push({ uid, name: name || 'Jugador', score: scoreToAdd });
+    scores.push({ uid, name: name || 'Jugador', score: scoreToAdd, stats: currentStats });
   }
   
   // Sort descending
@@ -164,7 +196,7 @@ export function subscribeLeaderboard(
   }
 
   // Real Firestore path
-  const q = query(collection(db, 'users'), orderBy('score', 'desc'), limit(10));
+  const q = query(collection(db, 'users'), orderBy('score', 'desc'), limit(50));
   const unsubscribe = onSnapshot(q, (snapshot) => {
     const data: UserProfile[] = [];
     snapshot.forEach(doc => {
@@ -182,26 +214,67 @@ export function subscribeLeaderboard(
   return unsubscribe;
 }
 
-// Save user score (dual mode)
-export async function saveUserScore(uid: string, name: string, points: number): Promise<number> {
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   if (isFallbackMode || uid.startsWith('local-')) {
-    return addLocalScore(uid, name, points);
+    const scores = getLocalScores();
+    return scores.find(s => s.uid === uid) || null;
+  }
+  try {
+    const docSnap = await getDoc(doc(db, 'users', uid));
+    if (docSnap.exists()) {
+      return docSnap.data() as UserProfile;
+    }
+  } catch (e) {
+    console.error("Error getting user profile", e);
+  }
+  return null;
+}
+
+// Save user score (dual mode)
+export async function saveUserScore(uid: string, name: string, points: number, won?: boolean, word?: string, timeSpent?: number): Promise<number> {
+  if (isFallbackMode || uid.startsWith('local-')) {
+    return addLocalScore(uid, name, points, won, word, timeSpent);
   }
 
   try {
     const userRef = doc(db, 'users', uid);
     const snap = await getDoc(userRef);
     let newScore = points;
+    let stats = {
+      gamesPlayed: 0,
+      gamesWon: 0,
+      totalTime: 0,
+      wordsGuessed: [] as string[],
+      achievements: [] as string[]
+    };
+
     if (snap.exists()) {
-      newScore = (snap.data().score || 0) + points;
-      await updateDoc(userRef, { score: newScore });
-    } else {
-      await setDoc(userRef, { uid, name, score: points });
+      const data = snap.data() as UserProfile;
+      newScore = (data.score || 0) + points;
+      if (data.stats) {
+        stats = { ...stats, ...data.stats };
+      }
     }
+
+    if (won !== undefined) {
+      stats.gamesPlayed += 1;
+      if (won) stats.gamesWon += 1;
+      if (timeSpent) stats.totalTime += timeSpent;
+      if (won && word && !stats.wordsGuessed.includes(word)) {
+        stats.wordsGuessed.push(word);
+      }
+      
+      if (stats.gamesWon >= 1 && !stats.achievements.includes('Primer Triunfo')) stats.achievements.push('Primer Triunfo');
+      if (stats.gamesWon >= 5 && !stats.achievements.includes('Imparable')) stats.achievements.push('Imparable');
+      if (stats.gamesWon >= 10 && !stats.achievements.includes('Maestro del Vocabulario')) stats.achievements.push('Maestro del Vocabulario');
+      if (stats.wordsGuessed.length >= 20 && !stats.achievements.includes('Diccionario Andante')) stats.achievements.push('Diccionario Andante');
+    }
+
+    await setDoc(userRef, { uid, name, score: newScore, stats }, { merge: true });
     return newScore;
   } catch (error) {
     console.warn("Firestore save score failed, saving locally:", error);
-    return addLocalScore(uid, name, points);
+    return addLocalScore(uid, name, points, won, word, timeSpent);
   }
 }
 

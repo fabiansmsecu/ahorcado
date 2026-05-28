@@ -18,7 +18,7 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
     const fetchStats = async () => {
       try {
         const pin = localStorage.getItem('teacher_pin') || '';
-        const res = await fetch(`/api/stats?pin=${pin}`);
+        const res = await fetch(`/api/stats?pin=${encodeURIComponent(pin)}`);
         if (res.ok) {
           const data = await res.json();
           setStats(data);
@@ -83,17 +83,17 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
-      <div className="flex justify-between items-center bg-[var(--white)] p-6 rounded-2xl border-4 border-black shadow-[6px_6px_0_0_#000]">
+      <div className="flex justify-between items-center bg-[var(--white)] p-6 rounded-2xl border-4 border-black shadow-[6px_6px_0_0_var(--dark)]">
         <button 
           onClick={onBack}
-          className="brutal-btn bg-gray-100 text-[var(--dark)] flex items-center gap-2 px-4 py-2 text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] border-[3px]"
+          className="brutal-btn bg-gray-100 text-[var(--dark)] flex items-center gap-2 px-4 py-2 text-sm shadow-[2px_2px_0px_rgba(27,26,25,1)] border-[3px]"
         >
           ← Volver
         </button>
         <h2 className="text-2xl font-black uppercase text-[var(--dark)] flex-1 text-center">Estadísticas de la Clase</h2>
         <button 
           onClick={handleReset}
-          className="brutal-btn bg-red-400 text-white flex items-center gap-2 px-4 py-2 text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] border-[3px] hover:bg-red-500"
+          className="brutal-btn bg-red-400 text-white flex items-center gap-2 px-4 py-2 text-sm shadow-[2px_2px_0px_rgba(27,26,25,1)] border-[3px] hover:bg-red-500"
         >
           Reiniciar
         </button>
@@ -147,7 +147,7 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
-                    stroke="#000"
+                    stroke="var(--dark)"
                     strokeWidth={3}
                   >
                     {progressData.map((entry, index) => (
@@ -177,7 +177,7 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
                   <XAxis type="number" allowDecimals={false} tick={{fontFamily: 'inherit', fontWeight: 'bold'}} />
                   <YAxis dataKey="word" type="category" width={100} tick={{fontFamily: 'inherit', fontWeight: 'bold', fontSize: 12}} />
                   <Tooltip cursor={{fill: '#f0f0f0'}} contentStyle={{ borderRadius: '12px', border: '3px solid black', fontWeight: 'bold', fontFamily: 'inherit' }} />
-                  <Bar dataKey="fallos" fill="var(--accent)" radius={[0, 8, 8, 0]} stroke="#000" strokeWidth={2} />
+                  <Bar dataKey="fallos" fill="var(--accent)" radius={[0, 8, 8, 0]} stroke="var(--dark)" strokeWidth={2} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

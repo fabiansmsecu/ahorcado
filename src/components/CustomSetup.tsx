@@ -10,7 +10,7 @@ interface CustomSetupProps {
 export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => {
   const [text, setText] = useState('');
   const [inputType, setInputType] = useState<'text' | 'words'>('text');
-  const [mode, setMode] = useState<'infantil' | 'universitario'>('universitario');
+  const [mode, setMode] = useState<string>('dificil');
   const [wordCount, setWordCount] = useState<number>(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,9 +25,10 @@ export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => 
     setError(null);
 
     try {
-      const difficultyDesc = mode === 'infantil' 
-        ? 'niños de 7 a 10 años (lenguaje muy sencillo, pistas muy claras)'
-        : 'estudiantes universitarios (conceptos avanzados, pistas intelectuales)';
+      let difficultyDesc = 'dificultad normal';
+      if (mode === 'facil') difficultyDesc = 'niños o principiantes (lenguaje muy sencillo, pistas muy claras y obvias)';
+      else if (mode === 'dificil') difficultyDesc = 'estudiantes (conceptos intermedios, pistas un poco abstractas)';
+      else if (mode === 'superdificil') difficultyDesc = 'expertos universitarios (conceptos muy avanzados, poco comunes y pistas intelectuales y ambiguas)';
       
       const inputDesc = inputType === 'words'
         ? 'Una lista de palabras explícitas proporcionadas por el usuario. Selecciona las mejores o utilízalas todas si son pocas.'
@@ -138,18 +139,24 @@ ${text}`;
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <label className="font-black text-[var(--dark)] text-lg uppercase">3. Dificultad</label>
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-2">
               <button 
-                className={cn("flex-1 brutal-btn py-2 text-sm", mode === 'infantil' ? "bg-[var(--secondary)] text-white" : "bg-white")}
-                onClick={() => setMode('infantil')}
+                className={cn("w-full brutal-btn py-2 text-sm", mode === 'facil' ? "bg-[var(--secondary)] text-white" : "bg-white text-gray-500")}
+                onClick={() => setMode('facil')}
               >
-                Infantil
+                Fácil
               </button>
               <button 
-                className={cn("flex-1 brutal-btn py-2 text-sm", mode === 'universitario' ? "bg-[var(--primary)] text-white" : "bg-white")}
-                onClick={() => setMode('universitario')}
+                className={cn("w-full brutal-btn py-2 text-sm", mode === 'dificil' ? "bg-[var(--primary)] text-white" : "bg-white text-gray-500")}
+                onClick={() => setMode('dificil')}
               >
-                Universidad
+                Difícil
+              </button>
+              <button 
+                className={cn("w-full brutal-btn py-2 text-sm", mode === 'superdificil' ? "bg-[var(--dark)] text-white" : "bg-white text-gray-500")}
+                onClick={() => setMode('superdificil')}
+              >
+                Super Difícil
               </button>
             </div>
           </div>
