@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { cn } from '../lib/utils';
-import { BookOpen, FileText, Loader2 } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Save } from 'lucide-react';
+import { saveLesson } from '../firebase';
 
 interface CustomSetupProps {
   onStart: (words: { word: string; hint: string }[], mode: string) => void;
@@ -12,12 +13,21 @@ export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => 
   const [inputType, setInputType] = useState<'text' | 'words'>('text');
   const [mode, setMode] = useState<string>('dificil');
   const [wordCount, setWordCount] = useState<number>(10);
+  
+  // Custom lesson metadata
+  const [subject, setSubject] = useState('');
+  const [lessonTitle, setLessonTitle] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!text.trim()) {
       setError("Por favor, ingresa algún texto o palabras.");
+      return;
+    }
+    if (!subject.trim() || !lessonTitle.trim()) {
+      setError("Por favor, ingresa una materia y el título de la lección para guardar tu historial.");
       return;
     }
 
@@ -30,10 +40,6 @@ export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => 
       else if (mode === 'dificil') difficultyDesc = 'estudiantes (conceptos intermedios, pistas un poco abstractas)';
       else if (mode === 'superdificil') difficultyDesc = 'expertos universitarios (conceptos muy avanzados, poco comunes y pistas intelectuales y ambiguas)';
       
-      const inputDesc = inputType === 'words'
-        ? 'Una lista de palabras explícitas proporcionadas por el usuario. Selecciona las mejores o utilízalas todas si son pocas.'
-        : 'Un bloque de texto o lección de estudio. Extrae los conceptos clave.';
-
       const promptInstructions = `A partir del siguiente texto, extrae HASTA un MÁXIMO de ${wordCount} palabras clave para un juego del ahorcado.
 Audiencia: ${difficultyDesc}.
 Retorna exactamente UNA palabra por línea, separada de su pista con un pipe (|).
@@ -59,10 +65,10 @@ ${text}`;
       }
       const dataJson = await response.json();
       const responseText = dataJson.text || "";
-      const lines = responseText.split('\n').map(l => l.trim()).filter(l => l.includes('|'));
+      const lines = responseText.split('\n').map((l: string) => l.trim()).filter((l: string) => l.includes('|'));
       
       const data = {
-        words: lines.map(line => {
+        words: lines.map((line: string) => {
           const [word, ...hintParts] = line.split('|');
           return { word: word.trim(), hint: hintParts.join('|').trim() };
         })
@@ -77,6 +83,9 @@ ${text}`;
         
         if (cleanedWords.length === 0) throw new Error("No se encontraron palabras válidas en la respuesta de la IA.");
         
+        // Save the generated lesson in Firebase
+        await saveLesson(subject.trim(), lessonTitle.trim(), cleanedWords, mode);
+
         onStart(cleanedWords, mode);
       } else {
         throw new Error("El formato de respuesta de la IA fue incorrecto o está vacío.");
@@ -91,18 +100,46 @@ ${text}`;
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4 space-y-8 mt-4 animate-in fade-in slide-in-from-bottom-4">
-      <div className="flex items-center space-x-4 mb-8">
-        <button onClick={onBack} className="brutal-btn bg-white px-4 py-2">
+    <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 pt-10 px-4">
+      <div className="flex justify-between items-center bg-[var(--white)] p-6 rounded-2xl border-4 border-[var(--dark)] shadow-[6px_6px_0_0_var(--dark)]">
+        <button onClick={onBack} className="brutal-btn bg-gray-100 text-[var(--dark)] flex items-center gap-2 px-4 py-2 text-sm shadow-[2px_2px_0px_rgba(27,26,25,1)] border-[3px]">
           ← Volver
         </button>
-        <h2 className="text-3xl font-black uppercase text-[var(--dark)] flex items-center gap-2">
-          <BookOpen className="text-[var(--primary)] w-8 h-8" />
-          Crear Lección
-        </h2>
+        <div className="flex items-center gap-4 flex-1 justify-center relative -left-8">
+           <BookOpen className="w-10 h-10 text-[var(--primary)]" />
+           <h2 className="text-3xl font-black uppercase text-[var(--dark)]">Crear Nueva Lección</h2>
+        </div>
       </div>
 
-      <div className="brutal-box p-6 md:p-8 space-y-6 bg-[var(--white)]">
+      <div className="brutal-box p-6 md:p-8 space-y-8 bg-[var(--white)]">
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2 mb-4">
+            <label className="font-black text-[var(--dark)] text-lg uppercase flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-[var(--primary)]" /> Materia o Asignatura
+            </label>
+            <input 
+              type="text"
+              placeholder="Ej: Auditoría Forense"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full p-3 brutal-box text-lg font-medium outline-none focus:border-[var(--primary)] bg-white"
+            />
+          </div>
+          <div className="space-y-2 mb-4">
+            <label className="font-black text-[var(--dark)] text-lg uppercase flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[var(--secondary)]" /> Título de la Lección
+            </label>
+            <input 
+              type="text"
+              placeholder="Ej: Lección 1"
+              value={lessonTitle}
+              onChange={(e) => setLessonTitle(e.target.value)}
+              className="w-full p-3 brutal-box text-lg font-medium outline-none focus:border-[var(--secondary)] bg-white"
+            />
+          </div>
+        </div>
+
         <div className="space-y-4">
           <label className="font-black text-[var(--dark)] text-lg uppercase flex items-center gap-2">
             1. Origen de las Palabras

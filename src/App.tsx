@@ -3,13 +3,14 @@ import { GameMode } from './types';
 import { Game } from './components/Game';
 import { Leaderboard } from './components/Leaderboard';
 import { CustomSetup } from './components/CustomSetup';
+import { SavedLessonsView } from './components/SavedLessonsView';
 import { ClassStatsView } from './components/ClassStatsView';
 import { UserProfileView } from './components/UserProfileView';
-import { auth, loginWithGoogle, logout, onAuthStateChanged, isFallbackMode, loginWithNickname } from './firebase';
+import { auth, loginWithGoogle, logout, onAuthStateChanged, isFallbackMode, loginWithNickname, saveLesson } from './firebase';
 import { cn } from './lib/utils';
-import { Trophy, LogIn, LogOut, Play, GraduationCap, BookOpen, AlertCircle, Sparkles, User, Settings, BarChart, UserCircle } from 'lucide-react';
+import { Trophy, LogIn, LogOut, Play, GraduationCap, BookOpen, AlertCircle, Sparkles, User, Settings, BarChart, UserCircle, Library } from 'lucide-react';
 
-type Screen = 'menu' | 'game' | 'leaderboard' | 'setup' | 'stats' | 'profile';
+type Screen = 'menu' | 'game' | 'leaderboard' | 'setup' | 'stats' | 'profile' | 'saved_lessons';
 type AppRole = 'student' | 'teacher' | null;
 
 export default function App() {
@@ -276,7 +277,31 @@ export default function App() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 w-full">
+            <div className="grid md:grid-cols-2 gap-8 w-full">
+              {/* Custom Lesson Card */}
+              <button 
+                onClick={() => setCurScreen('setup')}
+                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(27,26,25,0.15)] text-left relative overflow-hidden cursor-pointer bg-[var(--white)]"
+              >
+                <div className="w-16 h-16 bg-[var(--primary)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6 text-[var(--white)]">
+                  <BookOpen className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-black mb-2 text-center w-full">Configurar Lección Propia</h3>
+                <p className="font-bold opacity-70">Pega un texto y la IA creará la lección.</p>
+              </button>
+              
+              {/* Saved Lessons Card */}
+              <button 
+                onClick={() => setCurScreen('saved_lessons')}
+                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(27,26,25,0.15)] text-left relative overflow-hidden cursor-pointer"
+              >
+                <div className="w-16 h-16 bg-[var(--accent)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6 text-[var(--dark)]">
+                  <Library className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-black mb-2 text-center w-full">Materias Guardadas</h3>
+                <p className="font-bold opacity-70">Carga lecciones previas (Auditoría, Contabilidad...).</p>
+              </button>
+
               {/* Infantil Mode Card */}
               <button 
                 onClick={() => publishGame('infantil')}
@@ -285,7 +310,7 @@ export default function App() {
                 <div className="w-16 h-16 bg-[var(--accent)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6">
                   <Play className="w-8 h-8 text-[var(--dark)]" />
                 </div>
-                <h3 className="text-2xl font-black mb-2 text-[var(--primary)] text-center w-full">Publicar Modo Infantil</h3>
+                <h3 className="text-2xl font-black mb-2 text-[var(--primary)] text-center w-full">Modo Infantil Rápido</h3>
                 <p className="font-bold opacity-70">Para niños de 7 a 10 años.</p>
               </button>
 
@@ -294,23 +319,11 @@ export default function App() {
                 onClick={() => publishGame('universitario')}
                 className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(27,26,25,0.15)] text-left relative overflow-hidden cursor-pointer"
               >
-                <div className="w-16 h-16 bg-[var(--secondary)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6 text-white">
+                <div className="w-16 h-16 bg-[var(--secondary)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6 text-[var(--white)]">
                   <GraduationCap className="w-8 h-8" />
                 </div>
-                <h3 className="text-2xl font-black mb-2 text-center w-full">Publicar Universitario</h3>
+                <h3 className="text-2xl font-black mb-2 text-center w-full">Universitario Rápido</h3>
                 <p className="font-bold opacity-70">Conceptos científicos complejos con IA.</p>
-              </button>
-
-              {/* Custom Lesson Card */}
-              <button 
-                onClick={() => setCurScreen('setup')}
-                className="brutal-box flex flex-col items-center text-center p-8 transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(27,26,25,0.15)] text-left relative overflow-hidden cursor-pointer"
-              >
-                <div className="w-16 h-16 bg-[var(--primary)] border-2 border-[var(--dark)] rounded-xl flex items-center justify-center mb-6 text-white">
-                  <BookOpen className="w-8 h-8" />
-                </div>
-                <h3 className="text-2xl font-black mb-2 text-center w-full">Configurar Lección Propia</h3>
-                <p className="font-bold opacity-70">Pega un texto y la IA creará la lección.</p>
               </button>
             </div>
 
@@ -339,6 +352,16 @@ export default function App() {
 
         {curScreen === 'profile' && (
           <UserProfileView onBack={() => setCurScreen('menu')} />
+        )}
+
+        {curScreen === 'saved_lessons' && (
+          <SavedLessonsView 
+             onBack={() => setCurScreen('menu')} 
+             onPlayLesson={(words, m) => {
+               publishGame(m, words);
+               setCurScreen('menu'); // returns teacher to panel
+             }} 
+          />
         )}
 
         {curScreen === 'setup' && (

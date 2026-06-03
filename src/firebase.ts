@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged as firebaseOnAuthStateChanged } from 'firebase/auth';
-import { getFirestore, onSnapshot, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit } from 'firebase/firestore';
+import { getFirestore, onSnapshot, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, addDoc, getDocs } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { UserProfile } from './types';
+import { UserProfile, Lesson, CustomWord } from './types';
 
 // Detect fallback mode
 export const isFallbackMode = !firebaseConfig.apiKey || firebaseConfig.apiKey.includes('remixed');
@@ -275,6 +275,67 @@ export async function saveUserScore(uid: string, name: string, points: number, w
   } catch (error) {
     console.warn("Firestore save score failed, saving locally:", error);
     return addLocalScore(uid, name, points, won, word, timeSpent);
+  }
+}
+
+// --- Lessons API ---
+export async function getLessons(): Promise<Lesson[]> {
+  if (isFallbackMode) {
+    const raw = localStorage.getItem('local_lessons');
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+
+  try {
+    const q = query(collection(db, 'lessons'), orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    const lessons: Lesson[] = [];
+    snap.forEach(doc => {
+      lessons.push({ id: doc.id, ...doc.data() } as Lesson);
+    });
+    return lessons;
+  } catch (error) {
+    console.error("Error fetching lessons from Firestore", error);
+    // fallback to local
+    const raw = localStorage.getItem('local_lessons');
+    return raw ? JSON.parse(raw) : [];
+  }
+}
+
+export async function saveLesson(subject: string, title: string, words: CustomWord[], mode: string): Promise<Lesson> {
+  const lessonData = {
+    subject,
+    title,
+    words,
+    mode,
+    createdAt: Date.now()
+  };
+
+  if (isFallbackMode) {
+    const lessonsStr = localStorage.getItem('local_lessons');
+    const lessons: Lesson[] = lessonsStr ? JSON.parse(lessonsStr) : [];
+    const newLesson: Lesson = { id: 'local-' + Math.random().toString(36).substr(2, 9), ...lessonData };
+    lessons.push(newLesson);
+    localStorage.setItem('local_lessons', JSON.stringify(lessons));
+    return newLesson;
+  }
+
+  try {
+    const docRef = await addDoc(collection(db, 'lessons'), lessonData);
+    return { id: docRef.id, ...lessonData };
+  } catch (error) {
+    console.error("Error saving lesson to Firestore", error);
+    // fallback
+    const lessonsStr = localStorage.getItem('local_lessons');
+    const lessons: Lesson[] = lessonsStr ? JSON.parse(lessonsStr) : [];
+    const newLesson: Lesson = { id: 'local-' + Math.random().toString(36).substr(2, 9), ...lessonData };
+    lessons.push(newLesson);
+    localStorage.setItem('local_lessons', JSON.stringify(lessons));
+    return newLesson;
   }
 }
 
