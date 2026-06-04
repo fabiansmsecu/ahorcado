@@ -298,16 +298,24 @@ export default function App() {
             <div className="w-full bg-[var(--accent)] p-6 rounded-2xl border-4 border-black text-center shadow-[6px_6px_0_0_var(--dark)] relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-20"><Settings className="w-24 h-24 rotate-12" /></div>
               <h2 className="text-2xl font-black uppercase text-[var(--dark)] relative z-10">Panel del Profesor</h2>
-              <div className="font-bold mt-3 text-lg bg-white/50 inline-block px-6 py-2 rounded-full border-2 border-black relative z-10">
+              <div className="font-bold my-4 text-lg bg-white/50 inline-block px-6 py-2 rounded-full border-2 border-[var(--dark)] relative z-10">
                 Estado de la clase: {globalState.isActive ? <span className="text-green-700 font-black">Activo (MODO: {globalState.mode.toUpperCase()})</span> : <span className="text-red-600 font-black">Inactivo (Sala de espera)</span>}
               </div>
+
+              {globalState.isActive && (
+                <div className="mb-8 w-full max-w-sm mx-auto bg-yellow-300 border-[6px] border-black p-4 shadow-[8px_8px_0_0_black] -rotate-1 relative z-10">
+                  <p className="font-black text-xl uppercase mb-1">PIN PARA ALUMNOS:</p>
+                  <p className="font-black text-6xl tracking-[0.1em]">{globalState.roomPin}</p>
+                </div>
+              )}
               
               {globalState.isActive && !globalState.isPlaying && (
-                <div className="mt-8 bg-white p-6 border-4 border-[var(--dark)] inline-block relative z-10 w-full max-w-sm mx-auto shadow-[4px_4px_0_0_var(--dark)]">
+                <div className="mt-4 bg-white p-6 border-4 border-[var(--dark)] inline-block relative z-10 w-full max-w-sm mx-auto shadow-[4px_4px_0_0_var(--dark)]">
                   <h3 className="text-xl font-bold uppercase mb-2">Sala de Espera</h3>
-                  <div className="text-4xl font-black text-[var(--primary)] mb-4 tracking-widest">PIN: {globalState.roomPin}</div>
-                  <p className="font-bold text-gray-500 mb-4">{globalState.joinedStudents?.length || 0} estudiantes conectados</p>
-                  <button onClick={launchClassGame} className="w-full brutal-btn bg-green-500 text-white py-3 shadow-[3px_3px_0_0_var(--dark)] uppercase">Empezar Clase</button>
+                  <p className="font-bold text-gray-500 mb-6 bg-gray-100 py-3 border-2 border-dashed border-gray-300">
+                    {globalState.joinedStudents?.length || 0} estudiantes conectados
+                  </p>
+                  <button onClick={launchClassGame} className="w-full brutal-btn bg-green-500 text-white py-4 text-xl shadow-[3px_3px_0_0_var(--dark)] uppercase">Empezar Clase</button>
                   <button 
                      onClick={async () => {
                        await fetch('/api/game-state', {
@@ -316,7 +324,7 @@ export default function App() {
                          body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), isActive: false })
                        });
                      }}
-                     className="mt-4 w-full brutal-btn bg-[#ff4d4d] text-white py-2 text-sm uppercase"
+                     className="mt-4 w-full brutal-btn bg-[#ff4d4d] text-white py-3 font-bold uppercase hover:bg-red-600"
                   >Cerrar Sala</button>
                 </div>
               )}
@@ -591,7 +599,7 @@ export default function App() {
             </div>
             
             <p className="text-sm font-bold opacity-75 mb-6">
-              Introduce el PIN para administrar la sesión.
+              Introduce el PIN para administrar la sesión. (Por defecto usa: <strong>profe123</strong>)
             </p>
 
             <form onSubmit={(e) => {
