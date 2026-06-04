@@ -36,6 +36,31 @@ export default function App() {
   const [teacherPinInput, setTeacherPinInput] = useState('');
   const [feedbackMsg, setFeedbackMsg] = useState<{text: string, isError: boolean} | null>(null);
 
+  // PIN Configuration for Teacher
+  const [pinSemester, setPinSemester] = useState('A2026');
+  const [pinSubject, setPinSubject] = useState('');
+  const [pinTopic, setPinTopic] = useState('');
+
+  const buildRoomPin = () => {
+     let parts = [];
+     if (pinSemester.trim()) parts.push(pinSemester.trim().toUpperCase().replace(/\s+/g, ''));
+     
+     if (pinSubject.trim()) {
+        const subjStr = pinSubject.trim().split(' ').map(w => w.substring(0,3).toUpperCase()).join('');
+        if (subjStr) parts.push(subjStr);
+     }
+     
+     if (pinTopic.trim()) {
+        const topicStr = pinTopic.trim().split(' ').map(w => w.substring(0,3).toUpperCase()).join('');
+        if (topicStr) parts.push(topicStr);
+     }
+     
+     const randomDigits = Math.floor(100 + Math.random() * 900).toString(); // 3 digit suffix
+     parts.push(randomDigits);
+     
+     return parts.join('-');
+  };
+
   const showToast = (text: string, isError: boolean = false) => {
     setFeedbackMsg({ text, isError });
     setTimeout(() => setFeedbackMsg(null), 3500);
@@ -86,7 +111,7 @@ export default function App() {
 
   const publishGame = async (m: GameMode, words?: {word: string, hint: string}[]) => {
     const pin = localStorage.getItem('teacher_pin') || '';
-    const roomPinCode = Math.floor(1000 + Math.random() * 9000).toString(); // 4 digit PIN
+    const roomPinCode = buildRoomPin();
     try {
       const res = await fetch('/api/game-state', {
         method: 'POST',
@@ -377,12 +402,53 @@ export default function App() {
 
             <div className="text-center space-y-2 pt-4">
               <h2 className="text-3xl font-black tracking-tight uppercase">
-                {globalState.isActive ? 'Cambiar Lección' : 'Elige qué van a jugar'}
+                {globalState.isActive ? 'Cambiar Lección' : '1. CREAR SESIÓN: Elige qué van a jugar'}
               </h2>
               <p className="font-bold opacity-80">
                 Al seleccionar un modo u configurar una lección, esta será enviada directamente a las pantallas de tus estudiantes.
               </p>
             </div>
+
+            {!globalState.isActive && (
+              <div className="w-full bg-white p-6 border-4 border-black shadow-[4px_4px_0_0_black]">
+                <h3 className="text-xl font-black uppercase mb-4">Configurar PIN de Sala</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold mb-1">Semestre</label>
+                    <input 
+                      type="text" 
+                      value={pinSemester}
+                      onChange={e => setPinSemester(e.target.value)}
+                      placeholder="Ej. A2026"
+                      className="w-full p-2 border-2 border-black font-bold outline-none focus:bg-gray-100 uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1">Materia</label>
+                    <input 
+                      type="text" 
+                      value={pinSubject}
+                      onChange={e => setPinSubject(e.target.value)}
+                      placeholder="Ej. Auditoría Forense"
+                      className="w-full p-2 border-2 border-black font-bold outline-none focus:bg-gray-100 uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1">Tema</label>
+                    <input 
+                      type="text" 
+                      value={pinTopic}
+                      onChange={e => setPinTopic(e.target.value)}
+                      placeholder="Ej. Teorías Criminalísticas"
+                      className="w-full p-2 border-2 border-black font-bold outline-none focus:bg-gray-100 uppercase"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-gray-100 border-2 border-dashed border-gray-400 text-center font-bold">
+                  Vista Previa del PIN de sala: <span className="text-[var(--primary)] text-xl font-black">{buildRoomPin()}</span> (Se regenerarán los 3 últimos dígitos al crear)
+                </div>
+              </div>
+            )}
 
             <div className="grid md:grid-cols-2 gap-8 w-full">
               {/* Custom Lesson Card */}
