@@ -36,6 +36,9 @@ export default function App() {
   const [teacherPinInput, setTeacherPinInput] = useState('');
   const [feedbackMsg, setFeedbackMsg] = useState<{text: string, isError: boolean} | null>(null);
 
+  // Time Limit config
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(3);
+
   // PIN Configuration for Teacher
   const [pinSemester, setPinSemester] = useState('A2026');
   const [pinSubject, setPinSubject] = useState('');
@@ -112,6 +115,8 @@ export default function App() {
   const publishGame = async (m: GameMode, words?: {word: string, hint: string}[]) => {
     const pin = localStorage.getItem('teacher_pin') || '';
     const roomPinCode = buildRoomPin();
+    const defaultTime = words ? words.length * 2 : (m === 'infantil' ? 10 : 15);
+    setTimeLimitMinutes(defaultTime);
     try {
       const res = await fetch('/api/game-state', {
         method: 'POST',
@@ -148,12 +153,12 @@ export default function App() {
 
   const launchClassGame = async () => {
     const pin = localStorage.getItem('teacher_pin') || '';
-    let endTime = Date.now() + 300 * 1000; // 5 min for multiple words, let's just make it 3 mins overall globally.
+    let endTime = Date.now() + timeLimitMinutes * 60 * 1000;
     try {
       await fetch('/api/game-state', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ pin, isPlaying: true, gameEndTime: Date.now() + 180 * 1000 })
+        body: JSON.stringify({ pin, isPlaying: true, gameEndTime: endTime })
       });
       showToast("¡Juego iniciado en la clase!");
     } catch (e) {}
@@ -347,7 +352,17 @@ export default function App() {
                   <p className="font-bold text-gray-500 mb-6 bg-gray-100 py-3 border-2 border-dashed border-gray-300">
                     {globalState.joinedStudents?.length || 0} estudiantes conectados
                   </p>
-                  <button onClick={launchClassGame} className="w-full brutal-btn bg-green-500 text-white py-4 text-xl shadow-[3px_3px_0_0_var(--dark)] uppercase">Empezar Clase</button>
+                  
+                  <div className="mb-6 text-left">
+                    <label className="block font-bold text-[var(--dark)] mb-2 uppercase text-sm">Tiempo Límite (Minutos):</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setTimeLimitMinutes(prev => Math.max(1, prev - 1))} className="brutal-btn bg-gray-200 px-4 py-2 font-black text-xl hover:bg-gray-300">-</button>
+                      <div className="flex-1 brutal-box p-2 text-center text-xl font-black bg-gray-100">{timeLimitMinutes} min</div>
+                      <button onClick={() => setTimeLimitMinutes(prev => prev + 1)} className="brutal-btn bg-gray-200 px-4 py-2 font-black text-xl hover:bg-gray-300">+</button>
+                    </div>
+                  </div>
+
+                  <button onClick={launchClassGame} className="w-full brutal-btn bg-green-500 text-white py-4 text-xl shadow-[3px_3px_0_0_var(--dark)] uppercase hover:bg-green-600">Empezar Clase</button>
                   <button 
                      onClick={async () => {
                        await fetch('/api/game-state', {
