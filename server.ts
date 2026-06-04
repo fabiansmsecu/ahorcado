@@ -12,16 +12,8 @@ const PORT = 3000;
 app.use(express.json());
 
 // --- ESTADO GLOBAL DEL JUEGO Y ESTADÍSTICAS (SALON DE CLASES) ---
-let globalGameState = {
-  isActive: false,
-  isPlaying: false,
-  roomPin: '',
-  mode: 'infantil',
-  customWords: null as any,
-  sessionId: Date.now().toString(),
-  joinedStudents: [] as string[],
-  gameEndTime: null as number | null
-};
+// Now supports multiple concurrent rooms!
+const activeRooms: Record<string, any> = {};
 
 let classStats = {
   players: {} as Record<string, { name: string, score: number, gamesPlayed: number }>,
@@ -40,9 +32,15 @@ app.post("/api/verify-pin", (req, res) => {
   }
 });
 
-// Obtener el estado actual (para estudiantes)
+// Obtener el estado actual (para estudiantes y profesores)
 app.get("/api/game-state", (req, res) => {
-  res.json(globalGameState);
+  const roomPin = req.query.roomPin as string;
+  if (roomPin && activeRooms[roomPin]) {
+    res.json(activeRooms[roomPin]);
+  } else {
+    // Si no hay sala, devolvemos un estado inactivo genérico
+    res.json({ isActive: false, isPlaying: false, roomPin: '', mode: 'infantil', customWords: null, sessionId: '', joinedStudents: [], gameEndTime: null });
+  }
 });
 
 // Update the game state API
@@ -52,31 +50,52 @@ app.post("/api/game-state", (req, res) => {
     return res.status(403).json({ error: "PIN incorrecto" });
   }
 
-  const newSessionId = forceRestart ? Date.now().toString() : globalGameState.sessionId;
+  // If we are destroying a room
+  if (isActive === false && activeRooms[roomPin]) {
+    delete activeRooms[roomPin];
+    return res.json({ success: true, state: { isActive: false, roomPin: '' } });
+  }
 
-  globalGameState = { 
-    isActive: isActive !== undefined ? isActive : globalGameState.isActive,
-    isPlaying: isPlaying !== undefined ? isPlaying : globalGameState.isPlaying,
-    roomPin: roomPin !== undefined ? roomPin : globalGameState.roomPin,
-    mode: mode !== undefined ? mode : globalGameState.mode, 
-    customWords: customWords !== undefined ? customWords : globalGameState.customWords, 
-    sessionId: newSessionId,
-    joinedStudents: forceRestart ? [] : globalGameState.joinedStudents,
-    gameEndTime: gameEndTime !== undefined ? gameEndTime : globalGameState.gameEndTime
-  };
-  res.json({ success: true, state: globalGameState });
+  if (!activeRooms[roomPin]) {
+    // Create new room
+    activeRooms[roomPin] = {
+      isActive: true,
+      isPlaying: isPlaying || false,
+      roomPin: roomPin,
+      mode: mode || 'infantil',
+      customWords: customWords || null,
+      sessionId: Date.now().toString(),
+      joinedStudents: [],
+      gameEndTime: gameEndTime || null
+    };
+  } else {
+    // Update existing room
+    const currentRoom = activeRooms[roomPin];
+    const newSessionId = forceRestart ? Date.now().toString() : currentRoom.sessionId;
+    
+    currentRoom.isActive = isActive !== undefined ? isActive : currentRoom.isActive;
+    currentRoom.isPlaying = isPlaying !== undefined ? isPlaying : currentRoom.isPlaying;
+    currentRoom.mode = mode !== undefined ? mode : currentRoom.mode;
+    currentRoom.customWords = customWords !== undefined ? customWords : currentRoom.customWords;
+    currentRoom.sessionId = newSessionId;
+    currentRoom.joinedStudents = forceRestart ? [] : currentRoom.joinedStudents;
+    currentRoom.gameEndTime = gameEndTime !== undefined ? gameEndTime : currentRoom.gameEndTime;
+  }
+  
+  res.json({ success: true, state: activeRooms[roomPin] });
 });
 
 // Register student in lobby
 app.post("/api/join-lobby", (req, res) => {
   const { name, roomPin } = req.body;
-  if (globalGameState.isActive && globalGameState.roomPin === roomPin) {
-     if (!globalGameState.joinedStudents.includes(name)) {
-        globalGameState.joinedStudents.push(name);
+  const room = activeRooms[roomPin];
+  if (room && room.isActive) {
+     if (!room.joinedStudents.includes(name)) {
+        room.joinedStudents.push(name);
      }
      res.json({ success: true });
   } else {
-     res.status(400).json({ error: "PIN inválido o sala cerrada" });
+     res.status(400).json({ error: "PIN de sala inválido o sala cerrada" });
   }
 });
 

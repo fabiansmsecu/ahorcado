@@ -81,7 +81,8 @@ export default function App() {
   useEffect(() => {
     const fetchState = async () => {
       try {
-        const res = await fetch('/api/game-state');
+        const currentPin = role === 'teacher' ? localStorage.getItem('teacher_active_room') : localStorage.getItem('last_room_pin');
+        const res = await fetch(`/api/game-state?roomPin=${currentPin || ''}`);
         if (res.ok) {
           const data = await res.json();
           setGlobalState(data);
@@ -133,6 +134,7 @@ export default function App() {
         })
       });
       if (res.ok) {
+        localStorage.setItem('teacher_active_room', roomPinCode);
         showToast("¡Sala creada! Esperando estudiantes.");
       } else {
         if (res.status === 403) {
@@ -158,7 +160,7 @@ export default function App() {
       await fetch('/api/game-state', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ pin, isPlaying: true, gameEndTime: endTime })
+        body: JSON.stringify({ pin, roomPin: globalState.roomPin, isPlaying: true, gameEndTime: endTime })
       });
       showToast("¡Juego iniciado en la clase!");
     } catch (e) {}
@@ -261,10 +263,10 @@ export default function App() {
 
         {curScreen === 'menu' && role === 'student' && (
           <div className="max-w-2xl mx-auto text-center space-y-8 pt-10 animate-in fade-in">
-            {globalState.isActive && !globalState.isPlaying && globalState.roomPin !== localStorage.getItem('last_room_pin') ? (
+            {(!globalState.isActive || globalState.roomPin !== localStorage.getItem('last_room_pin')) ? (
               <div className="brutal-box p-12 bg-white flex flex-col items-center">
-                <h2 className="text-4xl font-black uppercase text-[var(--primary)] mb-4">¡Sala Abierta!</h2>
-                <p className="font-bold mb-8">El profesor ha abierto una sala. Ingresa el PIN para entrar.</p>
+                <h2 className="text-4xl font-black uppercase text-[var(--primary)] mb-4">Ingresar a Clase</h2>
+                <p className="font-bold mb-8">Ingresa el PIN que te dio tu profesor para entrar a la sala.</p>
                 <input 
                   type="text" 
                   value={studentPinInput}
@@ -368,8 +370,9 @@ export default function App() {
                        await fetch('/api/game-state', {
                          method: 'POST',
                          headers: {'Content-Type': 'application/json'},
-                         body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), isActive: false })
+                         body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), roomPin: globalState.roomPin, isActive: false })
                        });
+                       localStorage.removeItem('teacher_active_room');
                      }}
                      className="mt-4 w-full brutal-btn bg-[#ff4d4d] text-white py-3 font-bold uppercase hover:bg-red-600"
                   >Cerrar Sala</button>
@@ -406,8 +409,9 @@ export default function App() {
                          await fetch('/api/game-state', {
                            method: 'POST',
                            headers: {'Content-Type': 'application/json'},
-                           body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), isActive: false })
+                           body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), roomPin: globalState.roomPin, isActive: false })
                          });
+                         localStorage.removeItem('teacher_active_room');
                       }}
                       className="w-full brutal-btn bg-[#ff4d4d] text-white text-sm px-4 py-3 cursor-pointer shadow-[3px_3px_0_0_var(--dark)]"
                     >
