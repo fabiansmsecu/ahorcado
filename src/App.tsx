@@ -130,7 +130,14 @@ export default function App() {
       if (res.ok) {
         showToast("¡Sala creada! Esperando estudiantes.");
       } else {
-        showToast("Error al publicar la sala. PIN incorrecto.", true);
+        if (res.status === 403) {
+          showToast("Error: PIN de profesor revocado o inválido. Por favor, ingresa nuevamente.", true);
+          setRole(null);
+          localStorage.removeItem('teacher_pin');
+          setShowTeacherModal(true);
+        } else {
+          showToast("Error al publicar la sala.", true);
+        }
       }
     } catch(e) {}
   };
@@ -668,15 +675,31 @@ export default function App() {
               Introduce el PIN para administrar la sesión. (Por defecto usa: <strong>profe123</strong>)
             </p>
 
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
-              if (teacherPinInput.trim()) {
-                localStorage.setItem('teacher_pin', teacherPinInput.trim());
-                setRole('teacher');
-                setShowTeacherModal(false);
-                setTeacherPinInput('');
+              const pin = teacherPinInput.trim();
+              if (pin) {
+                try {
+                  const res = await fetch('/api/verify-pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                  });
+                  if (res.ok) {
+                    localStorage.setItem('teacher_pin', pin);
+                    setRole('teacher');
+                    setShowTeacherModal(false);
+                    setTeacherPinInput('');
+                    setLoginError('');
+                  } else {
+                    setLoginError('PIN Incorrecto');
+                  }
+                } catch(e) {
+                  setLoginError('Error de red');
+                }
               }
             }} className="space-y-4">
+              {loginError && <div className="text-red-500 font-bold mb-2 uppercase">{loginError}</div>}
               <div>
                 <input 
                   type="password"

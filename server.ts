@@ -32,6 +32,14 @@ let classStats = {
 
 const TEACHER_PIN = process.env.TEACHER_PIN || "profe123";
 
+app.post("/api/verify-pin", (req, res) => {
+  if (req.body.pin === TEACHER_PIN) {
+    res.json({ success: true });
+  } else {
+    res.status(403).json({ error: "PIN incorrecto" });
+  }
+});
+
 // Obtener el estado actual (para estudiantes)
 app.get("/api/game-state", (req, res) => {
   res.json(globalGameState);
