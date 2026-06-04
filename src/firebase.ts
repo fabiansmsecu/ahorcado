@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged as firebaseOnAuthStateChanged } from 'firebase/auth';
-import { getFirestore, onSnapshot, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, addDoc, getDocs } from 'firebase/firestore';
+import { getFirestore, onSnapshot, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { UserProfile, Lesson, CustomWord } from './types';
 
@@ -303,6 +303,35 @@ export async function getLessons(): Promise<Lesson[]> {
     // fallback to local
     const raw = localStorage.getItem('local_lessons');
     return raw ? JSON.parse(raw) : [];
+  }
+}
+
+export async function deleteLesson(id: string): Promise<void> {
+  if (isFallbackMode) {
+    const raw = localStorage.getItem('local_lessons');
+    if (raw) {
+      try {
+        const lessons: Lesson[] = JSON.parse(raw);
+        const newLessons = lessons.filter(l => l.id !== id);
+        localStorage.setItem('local_lessons', JSON.stringify(newLessons));
+      } catch {}
+    }
+    return;
+  }
+
+  try {
+    const docRef = doc(db, 'lessons', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting lesson from Firestore", error);
+    const raw = localStorage.getItem('local_lessons');
+    if (raw) {
+      try {
+        const lessons: Lesson[] = JSON.parse(raw);
+        const newLessons = lessons.filter(l => l.id !== id);
+        localStorage.setItem('local_lessons', JSON.stringify(newLessons));
+      } catch {}
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Lesson, GameMode } from '../types';
-import { getLessons } from '../firebase';
-import { BookOpen, Play, Calendar, Search } from 'lucide-react';
+import { getLessons, deleteLesson } from '../firebase';
+import { BookOpen, Play, Calendar, Search, Trash2 } from 'lucide-react';
 
 interface SavedLessonsViewProps {
   onBack: () => void;
@@ -99,12 +99,26 @@ export const SavedLessonsView: React.FC<SavedLessonsViewProps> = ({ onBack, onPl
                             {lesson.words.length > 3 && <span className="text-xs font-bold opacity-60">+{lesson.words.length - 3}...</span>}
                           </div>
 
-                          <button 
-                             onClick={() => onPlayLesson(lesson.words, lesson.mode)}
-                             className="mt-auto w-full brutal-btn bg-[var(--secondary)] text-white py-2 flex items-center justify-center gap-2 shadow-[2px_2px_0_0_var(--dark)]"
-                          >
-                             <Play className="w-5 h-5" /> Enviar y Jugar
-                          </button>
+                          <div className="mt-auto flex gap-2">
+                             <button 
+                                onClick={async () => {
+                                  if (confirm("¿Seguro que deseas eliminar esta lección?")) {
+                                     await deleteLesson(lesson.id);
+                                     setLessons(prev => prev.filter(l => l.id !== lesson.id));
+                                  }
+                                }}
+                                className="brutal-btn bg-red-500 text-white p-2 flex items-center justify-center shadow-[2px_2px_0_0_var(--dark)]"
+                                title="Eliminar lección"
+                             >
+                                <Trash2 className="w-5 h-5" />
+                             </button>
+                             <button 
+                                onClick={() => onPlayLesson(lesson.words, lesson.mode)}
+                                className="w-full brutal-btn bg-[var(--secondary)] text-white py-2 flex items-center justify-center gap-2 shadow-[2px_2px_0_0_var(--dark)]"
+                             >
+                                <Play className="w-5 h-5" /> Enviar y Jugar
+                             </button>
+                          </div>
                        </div>
                      ))}
                    </div>

@@ -42,6 +42,7 @@ export default function App() {
   // PIN Configuration for Teacher
   const [pinSemester, setPinSemester] = useState('A2026');
   const [pinSubject, setPinSubject] = useState('');
+  const [pinGroup, setPinGroup] = useState('');
   const [pinTopic, setPinTopic] = useState('');
 
   const buildRoomPin = () => {
@@ -51,6 +52,10 @@ export default function App() {
      if (pinSubject.trim()) {
         const subjStr = pinSubject.trim().split(' ').map(w => w.substring(0,3).toUpperCase()).join('');
         if (subjStr) parts.push(subjStr);
+     }
+
+     if (pinGroup.trim()) {
+        parts.push(pinGroup.trim().toUpperCase().substring(0,2));
      }
      
      if (pinTopic.trim()) {
@@ -438,7 +443,7 @@ export default function App() {
             {!globalState.isActive && (
               <div className="w-full bg-white p-6 border-4 border-black shadow-[4px_4px_0_0_black]">
                 <h3 className="text-xl font-black uppercase mb-4">Configurar PIN de Sala</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
                   <div>
                     <label className="block font-bold mb-1">Semestre</label>
                     <input 
@@ -460,12 +465,22 @@ export default function App() {
                     />
                   </div>
                   <div>
+                    <label className="block font-bold mb-1">Grupo / Paralelo</label>
+                    <input 
+                      type="text" 
+                      value={pinGroup}
+                      onChange={e => setPinGroup(e.target.value)}
+                      placeholder="Ej. A, B"
+                      className="w-full p-2 border-2 border-black font-bold outline-none focus:bg-gray-100 uppercase"
+                    />
+                  </div>
+                  <div>
                     <label className="block font-bold mb-1">Tema</label>
                     <input 
                       type="text" 
                       value={pinTopic}
                       onChange={e => setPinTopic(e.target.value)}
-                      placeholder="Ej. Teorías Criminalísticas"
+                      placeholder="Ej. Teorías"
                       className="w-full p-2 border-2 border-black font-bold outline-none focus:bg-gray-100 uppercase"
                     />
                   </div>
