@@ -14,9 +14,13 @@ app.use(express.json());
 // --- ESTADO GLOBAL DEL JUEGO Y ESTADÍSTICAS (SALON DE CLASES) ---
 let globalGameState = {
   isActive: false,
+  isPlaying: false,
+  roomPin: '',
   mode: 'infantil',
   customWords: null as any,
-  sessionId: Date.now().toString()
+  sessionId: Date.now().toString(),
+  joinedStudents: [] as string[],
+  gameEndTime: null as number | null
 };
 
 let classStats = {
@@ -33,17 +37,39 @@ app.get("/api/game-state", (req, res) => {
   res.json(globalGameState);
 });
 
-// Actualizar el estado (solo profesor)
+// Update the game state API
 app.post("/api/game-state", (req, res) => {
-  const { pin, mode, customWords, isActive, forceRestart } = req.body;
+  const { pin, mode, customWords, isActive, isPlaying, roomPin, forceRestart, gameEndTime } = req.body;
   if (pin !== TEACHER_PIN) {
     return res.status(403).json({ error: "PIN incorrecto" });
   }
 
-  const newSessionId = forceRestart ? Date.now().toString() : (isActive !== globalGameState.isActive || mode !== globalGameState.mode || customWords !== globalGameState.customWords ? Date.now().toString() : globalGameState.sessionId);
+  const newSessionId = forceRestart ? Date.now().toString() : globalGameState.sessionId;
 
-  globalGameState = { isActive, mode, customWords, sessionId: newSessionId };
+  globalGameState = { 
+    isActive: isActive !== undefined ? isActive : globalGameState.isActive,
+    isPlaying: isPlaying !== undefined ? isPlaying : globalGameState.isPlaying,
+    roomPin: roomPin !== undefined ? roomPin : globalGameState.roomPin,
+    mode: mode !== undefined ? mode : globalGameState.mode, 
+    customWords: customWords !== undefined ? customWords : globalGameState.customWords, 
+    sessionId: newSessionId,
+    joinedStudents: forceRestart ? [] : globalGameState.joinedStudents,
+    gameEndTime: gameEndTime !== undefined ? gameEndTime : globalGameState.gameEndTime
+  };
   res.json({ success: true, state: globalGameState });
+});
+
+// Register student in lobby
+app.post("/api/join-lobby", (req, res) => {
+  const { name, roomPin } = req.body;
+  if (globalGameState.isActive && globalGameState.roomPin === roomPin) {
+     if (!globalGameState.joinedStudents.includes(name)) {
+        globalGameState.joinedStudents.push(name);
+     }
+     res.json({ success: true });
+  } else {
+     res.status(400).json({ error: "PIN inválido o sala cerrada" });
+  }
 });
 
 // Guardar resultados de una partida (estudiantes)

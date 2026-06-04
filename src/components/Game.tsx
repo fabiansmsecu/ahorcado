@@ -4,6 +4,8 @@ import { HangmanFigure } from './HangmanFigure';
 import { cn } from '../lib/utils';
 import confetti from 'canvas-confetti';
 import { auth, saveUserScore } from '../firebase';
+import { playSound } from '../audio';
+import { Clock } from 'lucide-react';
 
 interface WordData {
   word: string;
@@ -14,16 +16,18 @@ interface GameProps {
   mode: GameMode;
   onBack: () => void;
   customWords?: {word: string, hint: string}[];
+  globalEndTime?: number | null;
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
 
-export const Game: React.FC<GameProps> = ({ mode, onBack, customWords }) => {
+export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEndTime }) => {
   const [wordData, setWordData] = useState<WordData | null>(null);
   const [guessedLetters, setGuessedLetters] = useState<Set<string>>(new Set());
   const [mistakes, setMistakes] = useState(0);
   const [gameState, setGameState] = useState<GameState>('playing');
   const [loading, setLoading] = useState(true);
+  const [timeLeft, setTimeLeft] = useState<number>(60);
   const [remainingCustomWords, setRemainingCustomWords] = useState<{word: string, hint: string}[] | null>(
     customWords ? [...customWords] : null
   );
@@ -52,6 +56,7 @@ export const Game: React.FC<GameProps> = ({ mode, onBack, customWords }) => {
     setGuessedLetters(new Set());
     setMistakes(0);
     setGameState('playing');
+    setTimeLeft(120); // 120 seconds per word
     setStartTime(Date.now());
 
     if (remainingCustomWords !== null) {
@@ -140,16 +145,46 @@ Instrucciones críticas:
   useEffect(() => {
     if (!wordData || gameState !== 'playing') return;
 
-    const uniqueLetters = new Set(wordData.word.split(""));
-    const isWon = Array.from(uniqueLetters).every(char => guessedLetters.has(char) || char === ' ');
+    if (!globalEndTime && timeLeft <= 0) {
+       setGameState('lost');
+       playSound.lose();
+       updateUserScore(false);
+       return;
+    }
+
+    const timerId = setInterval(() => {
+      if (globalEndTime) {
+         const remaining = Math.max(0, Math.floor((globalEndTime - Date.now()) / 1000));
+         setTimeLeft(remaining);
+         if (remaining <= 0) {
+            setGameState('lost');
+            playSound.lose();
+            updateUserScore(false);
+            clearInterval(timerId);
+         }
+      } else {
+         setTimeLeft(prev => prev - 1);
+      }
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [globalEndTime, timeLeft, wordData, gameState]);
+
+  useEffect(() => {
+    if (!wordData || gameState !== 'playing') return;
+
+    const uniqueLetters = new Set(wordData.word.split("").filter(c => c !== ' '));
+    const isWon = Array.from(uniqueLetters).every(char => guessedLetters.has(char));
     const isLost = mistakes >= maxMistakes;
 
     if (isWon) {
       setGameState('won');
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      playSound.win();
+      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#FFD700', '#FF8C00', '#00FA9A'] });
       updateUserScore(true);
     } else if (isLost) {
       setGameState('lost');
+      playSound.lose();
       updateUserScore(false);
     }
   }, [guessedLetters, mistakes, wordData, gameState]);
@@ -198,6 +233,9 @@ Instrucciones críticas:
 
     if (!wordData.word.includes(char)) {
       setMistakes(m => m + 1);
+      playSound.wrong();
+    } else {
+      playSound.correct();
     }
   };
 
@@ -224,6 +262,16 @@ Instrucciones críticas:
         >
           ← Volver
         </button>
+
+        {/* Timer UI */}
+        <div className={cn(
+            "flex items-center gap-2 brutal-box px-6 py-2 text-2xl font-black bg-[var(--white)] border-[4px]",
+            timeLeft <= 10 ? "text-red-600 animate-pulse bg-red-100" : "text-[var(--dark)]"
+        )}>
+           <Clock className="w-6 h-6" />
+           {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+        </div>
+
         <div className="mode-badge">
           Modo: {mode}
         </div>
@@ -239,26 +287,29 @@ Instrucciones críticas:
           </div>
 
           {/* Word Display */}
-          <div className="brutal-box w-full py-8 px-4 text-center">
-            <div className="flex flex-wrap justify-center gap-x-2 gap-y-4 text-3xl md:text-5xl font-black uppercase tracking-widest text-[var(--dark)]">
-              {wordData.word.split('').map((char, i) => (
-                char === ' ' ? <div key={i} className="w-4 md:w-8" /> :
-                <span 
-                  key={i} 
-                  className={cn(
-                    "inline-block border-b-4 border-[var(--dark)] pb-1 min-w-[32px] md:min-w-[48px]",
-                    !guessedLetters.has(char) && gameState === 'playing' ? "text-transparent" : "text-current",
-                    (gameState === 'lost' && !guessedLetters.has(char)) && "text-[var(--primary)]" // reveal missed letters
-                  )}
-                >
-                  {char}
-                </span>
+          <div translate="no" className="notranslate brutal-box w-full py-6 md:py-8 px-2 md:px-4 text-center">
+            <div className="flex flex-wrap justify-center gap-x-6 md:gap-x-12 gap-y-4 text-2xl md:text-5xl font-black uppercase tracking-widest text-[var(--dark)]">
+              {wordData.word.split(' ').map((wordPart, wpIdx) => (
+                <div key={wpIdx} className="flex flex-wrap justify-center gap-x-1 sm:gap-x-2">
+                  {wordPart.split('').map((char, i) => (
+                    <span 
+                      key={`${wpIdx}-${i}`} 
+                      className={cn(
+                        "inline-block border-b-[3px] md:border-b-4 border-[var(--dark)] pb-1 min-w-[24px] sm:min-w-[32px] md:min-w-[48px]",
+                        !guessedLetters.has(char) && gameState === 'playing' ? "text-transparent" : "text-current",
+                        (gameState === 'lost' && !guessedLetters.has(char)) && "text-[var(--primary)]"
+                      )}
+                    >
+                      {char}
+                    </span>
+                  ))}
+                </div>
               ))}
             </div>
           </div>
 
           {/* Keyboard */}
-          <div className="brutal-box w-full p-4 md:p-6 grid grid-cols-7 sm:grid-cols-9 gap-2 md:gap-3 bg-[var(--white)]">
+          <div translate="no" className="notranslate brutal-box w-full p-4 md:p-6 grid grid-cols-7 sm:grid-cols-9 gap-2 md:gap-3 bg-[var(--white)]">
             {ALPHABET.map(char => {
               const guessed = guessedLetters.has(char);
               const isCorrect = wordData.word.includes(char);

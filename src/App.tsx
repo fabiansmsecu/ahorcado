@@ -6,6 +6,7 @@ import { CustomSetup } from './components/CustomSetup';
 import { SavedLessonsView } from './components/SavedLessonsView';
 import { ClassStatsView } from './components/ClassStatsView';
 import { UserProfileView } from './components/UserProfileView';
+import { LiveClassStats } from './components/LiveClassStats';
 import { auth, loginWithGoogle, logout, onAuthStateChanged, isFallbackMode, loginWithNickname, saveLesson } from './firebase';
 import { cn } from './lib/utils';
 import { Trophy, LogIn, LogOut, Play, GraduationCap, BookOpen, AlertCircle, Sparkles, User, Settings, BarChart, UserCircle, Library } from 'lucide-react';
@@ -16,7 +17,7 @@ type AppRole = 'student' | 'teacher' | null;
 export default function App() {
   const [curScreen, setCurScreen] = useState<Screen>('menu');
   const [role, setRole] = useState<AppRole>(null);
-  const [globalState, setGlobalState] = useState<{isActive: boolean, mode: string, customWords: any, sessionId: string}>({isActive: false, mode: 'infantil', customWords: null, sessionId: ''});
+  const [globalState, setGlobalState] = useState<{isActive: boolean, isPlaying: boolean, roomPin: string, mode: string, customWords: any, sessionId: string, joinedStudents: string[], gameEndTime: number | null}>({isActive: false, isPlaying: false, roomPin: '', mode: 'infantil', customWords: null, sessionId: '', joinedStudents: [], gameEndTime: null});
   const [currentSession, setCurrentSession] = useState('');
 
   const [mode, setMode] = useState<GameMode>('infantil');
@@ -27,6 +28,7 @@ export default function App() {
   // Nickname registration state
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
+  const [studentPinInput, setStudentPinInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
   // Professor PIN & Feedback state
@@ -47,7 +49,7 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Poll global state every 3 seconds
+  // Poll global state
   useEffect(() => {
     const fetchState = async () => {
       try {
@@ -56,7 +58,6 @@ export default function App() {
           const data = await res.json();
           setGlobalState(data);
           
-          // Force kick out students if teacher restared session
           if (data.sessionId && currentSession && data.sessionId !== currentSession && curScreen === 'game' && role === 'student') {
              setCurScreen('menu');
              showToast("¡El profesor ha iniciado una nueva lección!");
@@ -64,13 +65,18 @@ export default function App() {
           if (data.sessionId) {
              setCurrentSession(data.sessionId);
           }
+          
+          // Auto-start student if game transitions from lobby to playing
+          if (role === 'student' && user && curScreen === 'menu' && data.isActive && data.isPlaying && data.roomPin === localStorage.getItem('last_room_pin')) {
+             startGame(data.mode as GameMode, data.customWords);
+          }
         }
       } catch (e) {}
     };
     fetchState();
-    const interval = setInterval(fetchState, 3000);
+    const interval = setInterval(fetchState, 1500); // 1.5s update for clocks
     return () => clearInterval(interval);
-  }, [curScreen, currentSession, role]);
+  }, [curScreen, currentSession, role, user]);
 
   const startGame = (m: GameMode, words?: {word: string, hint: string}[]) => {
     setMode(m);
@@ -80,6 +86,7 @@ export default function App() {
 
   const publishGame = async (m: GameMode, words?: {word: string, hint: string}[]) => {
     const pin = localStorage.getItem('teacher_pin') || '';
+    const roomPinCode = Math.floor(1000 + Math.random() * 9000).toString(); // 4 digit PIN
     try {
       const res = await fetch('/api/game-state', {
         method: 'POST',
@@ -88,13 +95,17 @@ export default function App() {
           pin,
           mode: m,
           customWords: words || null,
-          isActive: true
+          isActive: true,
+          isPlaying: false, // starts in lobby
+          roomPin: roomPinCode,
+          forceRestart: true,
+          gameEndTime: null
         })
       });
       if (res.ok) {
-        showToast("¡Juego publicado para los estudiantes!");
+        showToast("¡Sala creada! Esperando estudiantes.");
       } else {
-        showToast("Error al publicar el juego. PIN incorrecto.", true);
+        showToast("Error al publicar la sala. PIN incorrecto.", true);
       }
     } catch(e) {}
   };
@@ -102,6 +113,40 @@ export default function App() {
   if (!isAuthReady) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold text-gray-600">Cargando partida...</div>;
   }
+
+  const launchClassGame = async () => {
+    const pin = localStorage.getItem('teacher_pin') || '';
+    let endTime = Date.now() + 300 * 1000; // 5 min for multiple words, let's just make it 3 mins overall globally.
+    try {
+      await fetch('/api/game-state', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ pin, isPlaying: true, gameEndTime: Date.now() + 180 * 1000 })
+      });
+      showToast("¡Juego iniciado en la clase!");
+    } catch (e) {}
+  };
+
+  const joinLobby = async () => {
+    if (!studentPinInput) return;
+    try {
+      const res = await fetch('/api/join-lobby', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name: user?.displayName || 'Jugador', roomPin: studentPinInput })
+      });
+      if (res.ok) {
+         localStorage.setItem('last_room_pin', studentPinInput);
+         showToast("¡Estás dentro de la sala! Esperando que inicie...");
+         // To re-trigger effect maybe? We just set it in local storage. 
+         // Poll will pick it up and trigger startGame once `isPlaying` changes!
+         setGlobalState(prev => ({...prev, joinedStudents: [...prev.joinedStudents, user?.displayName || 'Jugador']})); // optimistic ui if we wanted
+      } else {
+         const d = await res.json();
+         showToast(d.error || "Error al unirse", true);
+      }
+    } catch (e) {}
+  };
 
   return (
     <div className="min-h-screen w-full flex flex-col p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
@@ -179,7 +224,34 @@ export default function App() {
 
         {curScreen === 'menu' && role === 'student' && (
           <div className="max-w-2xl mx-auto text-center space-y-8 pt-10 animate-in fade-in">
-            {globalState.isActive ? (
+            {globalState.isActive && !globalState.isPlaying && globalState.roomPin !== localStorage.getItem('last_room_pin') ? (
+              <div className="brutal-box p-12 bg-white flex flex-col items-center">
+                <h2 className="text-4xl font-black uppercase text-[var(--primary)] mb-4">¡Sala Abierta!</h2>
+                <p className="font-bold mb-8">El profesor ha abierto una sala. Ingresa el PIN para entrar.</p>
+                <input 
+                  type="text" 
+                  value={studentPinInput}
+                  onChange={e => setStudentPinInput(e.target.value)}
+                  placeholder="PIN DE JUEGO"
+                  className="w-full max-w-sm text-center font-black text-3xl uppercase tracking-widest p-4 brutal-box mb-6 border-[4px]"
+                />
+                <button 
+                  onClick={joinLobby}
+                  className="brutal-btn w-full max-w-sm bg-[var(--dark)] text-white text-2xl py-4 cursor-pointer"
+                >
+                  Entrar
+                </button>
+              </div>
+            ) : globalState.isActive && !globalState.isPlaying && globalState.roomPin === localStorage.getItem('last_room_pin') ? (
+              <div className="brutal-box p-12 bg-[var(--accent)] flex flex-col items-center">
+                <div className="w-16 h-16 border-8 border-gray-800 border-t-[var(--primary)] rounded-full animate-spin mx-auto mb-8"></div>
+                <h2 className="text-4xl font-black uppercase text-[var(--dark)] mb-4">¡Estás dentro!</h2>
+                <p className="font-bold opacity-70 text-xl">Mira la pantalla del profesor. El juego está por comenzar...</p>
+                <div className="mt-6 bg-white px-4 py-2 font-bold uppercase border-2 border-black">
+                  Tu apodo: {user?.displayName}
+                </div>
+              </div>
+            ) : globalState.isActive && globalState.isPlaying && globalState.roomPin === localStorage.getItem('last_room_pin') ? (
               <div className="brutal-box p-12 bg-white flex flex-col items-center">
                 <h2 className="text-4xl font-black uppercase text-[var(--primary)] mb-4">¡El profesor ha iniciado!</h2>
                 <p className="font-bold opacity-70 mb-8 text-xl">
@@ -195,8 +267,8 @@ export default function App() {
             ) : (
               <div className="brutal-box p-12 bg-gray-50 border-dashed border-gray-300 border-[4px] shadow-none">
                 <div className="w-16 h-16 border-8 border-gray-200 border-t-[var(--primary)] rounded-full animate-spin mx-auto mb-8"></div>
-                <h2 className="text-3xl font-black uppercase mb-2">Esperando al profesor...</h2>
-                <p className="font-bold opacity-60">No hay ninguna lección activa. El juego arrancará aquí solíto.</p>
+                <h2 className="text-3xl font-black uppercase mb-2">Esperando partida...</h2>
+                <p className="font-bold opacity-60">El profesor aún no ha abierto la sala.</p>
               </div>
             )}
             
@@ -230,41 +302,68 @@ export default function App() {
                 Estado de la clase: {globalState.isActive ? <span className="text-green-700 font-black">Activo (MODO: {globalState.mode.toUpperCase()})</span> : <span className="text-red-600 font-black">Inactivo (Sala de espera)</span>}
               </div>
               
-              {globalState.isActive && (
-                <div className="mt-6 flex flex-col md:flex-row justify-center items-center gap-4 relative z-10">
+              {globalState.isActive && !globalState.isPlaying && (
+                <div className="mt-8 bg-white p-6 border-4 border-[var(--dark)] inline-block relative z-10 w-full max-w-sm mx-auto shadow-[4px_4px_0_0_var(--dark)]">
+                  <h3 className="text-xl font-bold uppercase mb-2">Sala de Espera</h3>
+                  <div className="text-4xl font-black text-[var(--primary)] mb-4 tracking-widest">PIN: {globalState.roomPin}</div>
+                  <p className="font-bold text-gray-500 mb-4">{globalState.joinedStudents?.length || 0} estudiantes conectados</p>
+                  <button onClick={launchClassGame} className="w-full brutal-btn bg-green-500 text-white py-3 shadow-[3px_3px_0_0_var(--dark)] uppercase">Empezar Clase</button>
                   <button 
-                    onClick={async () => {
-                       await fetch('/api/game-state', {
-                         method: 'POST',
-                         headers: {'Content-Type': 'application/json'},
-                         body: JSON.stringify({ 
-                           pin: localStorage.getItem('teacher_pin'), 
-                           isActive: true, 
-                           mode: globalState.mode, 
-                           customWords: globalState.customWords,
-                           forceRestart: true 
-                         })
-                       });
-                       showToast("¡Lección reiniciada para todos los estudiantes!");
-                    }}
-                    className="brutal-btn bg-white text-[var(--dark)] text-sm px-6 py-3 cursor-pointer shadow-[3px_3px_0_0_var(--dark)]"
-                  >
-                    Re-enviar (Reiniciar todos)
-                  </button>
-
-                  <button 
-                    onClick={async () => {
+                     onClick={async () => {
                        await fetch('/api/game-state', {
                          method: 'POST',
                          headers: {'Content-Type': 'application/json'},
                          body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), isActive: false })
                        });
-                    }}
-                    className="brutal-btn bg-[#ff4d4d] text-white text-sm px-6 py-3 cursor-pointer"
-                  >
-                    Detener Juego (Volver a sala)
-                  </button>
+                     }}
+                     className="mt-4 w-full brutal-btn bg-[#ff4d4d] text-white py-2 text-sm uppercase"
+                  >Cerrar Sala</button>
                 </div>
+              )}
+
+              {globalState.isActive && globalState.isPlaying && (
+                <div className="w-full flex justify-center">
+                  <div className="mt-6 flex flex-col md:flex-row justify-center items-center gap-4 relative z-10 w-full max-w-sm mb-4">
+                    <button 
+                      onClick={async () => {
+                         await fetch('/api/game-state', {
+                           method: 'POST',
+                           headers: {'Content-Type': 'application/json'},
+                           body: JSON.stringify({ 
+                             pin: localStorage.getItem('teacher_pin'), 
+                             isActive: true,
+                             isPlaying: false,
+                             roomPin: globalState.roomPin, 
+                             mode: globalState.mode, 
+                             customWords: globalState.customWords,
+                             forceRestart: true 
+                           })
+                         });
+                         showToast("¡Lección reiniciada hacia la sala de espera!");
+                      }}
+                      className="w-full brutal-btn bg-white text-[var(--dark)] text-sm px-4 py-3 cursor-pointer shadow-[3px_3px_0_0_var(--dark)]"
+                    >
+                      Reiniciar Lobby
+                    </button>
+
+                    <button 
+                      onClick={async () => {
+                         await fetch('/api/game-state', {
+                           method: 'POST',
+                           headers: {'Content-Type': 'application/json'},
+                           body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), isActive: false })
+                         });
+                      }}
+                      className="w-full brutal-btn bg-[#ff4d4d] text-white text-sm px-4 py-3 cursor-pointer shadow-[3px_3px_0_0_var(--dark)]"
+                    >
+                      Terminar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {globalState.isActive && globalState.isPlaying && (
+                <LiveClassStats joinedStudents={globalState.joinedStudents || []} gameEndTime={globalState.gameEndTime} />
               )}
             </div>
 
@@ -375,7 +474,11 @@ export default function App() {
         )}
 
         {curScreen === 'game' && (
-          <Game mode={mode} customWords={customWords} onBack={() => {
+          <Game 
+            mode={mode} 
+            customWords={customWords} 
+            globalEndTime={globalState.gameEndTime}
+            onBack={() => {
              // For student, returning from game goes back to wait room.
              setCurScreen('menu');
           }} />
