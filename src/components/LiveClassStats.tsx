@@ -13,6 +13,7 @@ interface Result {
 
 export function LiveClassStats({ joinedStudents, gameEndTime, roomPin }: { joinedStudents: string[], gameEndTime: number | null, roomPin: string }) {
   const [results, setResults] = useState<Result[]>([]);
+  const [leaderboard, setLeaderboard] = useState<{name: string, score: number}[]>([]);
   const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
@@ -21,13 +22,17 @@ export function LiveClassStats({ joinedStudents, gameEndTime, roomPin }: { joine
         const res = await fetch(`/api/class-stats?roomPin=${encodeURIComponent(roomPin)}`);
         const data = await res.json();
         setResults(data.results || []);
+
+        const leaderRes = await fetch(`/api/room-leaderboard?roomPin=${encodeURIComponent(roomPin)}`);
+        const leaderData = await leaderRes.json();
+        setLeaderboard(leaderData.leaderboard || []);
       } catch (e) {}
     };
 
     fetchStats();
     const interval = setInterval(fetchStats, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [roomPin]);
 
   useEffect(() => {
      if (!gameEndTime) return;
@@ -64,15 +69,22 @@ export function LiveClassStats({ joinedStudents, gameEndTime, roomPin }: { joine
       ) : (
         <div className="space-y-3">
           {/* Combine joined students and those who somehow skipped the lobby */}
-          {Array.from(new Set([...joinedStudents, ...results.map(r => r.name)])).map(studentName => {
-             const studentResult = results.find(r => r.name === studentName);
+          {Array.from(new Set([...joinedStudents, ...results.map(r => r.name)]))
+            .map(studentName => {
+              const studentScoreObj = leaderboard.find(l => l.name === studentName);
+              const score = studentScoreObj ? studentScoreObj.score : 0;
+              return { studentName, score };
+            })
+            .sort((a, b) => b.score - a.score)
+            .map(({ studentName, score: studentScore }, index) => {
+             const studentResult = [...results].reverse().find(r => r.name === studentName);
              return (
                <div key={studentName} className="flex items-center justify-between p-3 border-2 border-black rounded-lg bg-gray-50 uppercase font-bold text-sm sm:text-base">
                  <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-black flex items-center justify-center font-black">
-                     {studentName.charAt(0).toUpperCase()}
+                   <div className="w-8 h-8 rounded-full bg-gray-200 border-2 border-black flex items-center justify-center font-black text-gray-500 text-xs">
+                     #{index + 1}
                    </div>
-                   {studentName}
+                   {studentName} <span className="ml-2 bg-yellow-200 border border-yellow-400 px-2 rounded-full text-xs text-yellow-800 shadow-[1px_1px_0_0_#ca8a04]">PUNTOS: {studentScore}</span>
                  </div>
                  
                  <div>

@@ -377,6 +377,7 @@ export default function App() {
                          headers: {'Content-Type': 'application/json'},
                          body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), roomPin: globalState.roomPin, isActive: false })
                        });
+                       localStorage.setItem('teacher_last_room', globalState.roomPin);
                        localStorage.removeItem('teacher_active_room');
                      }}
                      className="mt-4 w-full brutal-btn bg-[#ff4d4d] text-white py-3 font-bold uppercase hover:bg-red-600"
@@ -416,6 +417,7 @@ export default function App() {
                            headers: {'Content-Type': 'application/json'},
                            body: JSON.stringify({ pin: localStorage.getItem('teacher_pin'), roomPin: globalState.roomPin, isActive: false })
                          });
+                         localStorage.setItem('teacher_last_room', globalState.roomPin);
                          localStorage.removeItem('teacher_active_room');
                       }}
                       className="w-full brutal-btn bg-[#ff4d4d] text-white text-sm px-4 py-3 cursor-pointer shadow-[3px_3px_0_0_var(--dark)]"
@@ -593,6 +595,7 @@ export default function App() {
             mode={mode} 
             customWords={customWords} 
             globalEndTime={globalState.gameEndTime}
+            roomPin={globalState.roomPin || localStorage.getItem('last_room_pin') || undefined}
             onBack={() => {
              // For student, returning from game goes back to wait room.
              setCurScreen('menu');

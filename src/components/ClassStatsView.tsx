@@ -18,7 +18,7 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
     const fetchStats = async () => {
       try {
         const pin = localStorage.getItem('teacher_pin') || '';
-        const roomPin = localStorage.getItem('teacher_active_room') || '';
+        const roomPin = localStorage.getItem('teacher_active_room') || localStorage.getItem('teacher_last_room') || '';
         const res = await fetch(`/api/stats?pin=${encodeURIComponent(pin)}&roomPin=${encodeURIComponent(roomPin)}`);
         if (res.ok) {
           const data = await res.json();
@@ -42,7 +42,7 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
     
     try {
       const pin = localStorage.getItem('teacher_pin') || '';
-      const roomPin = localStorage.getItem('teacher_active_room') || '';
+      const roomPin = localStorage.getItem('teacher_active_room') || localStorage.getItem('teacher_last_room') || '';
       await fetch(`/api/stats/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

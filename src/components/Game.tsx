@@ -3,9 +3,11 @@ import { GameMode, GameState } from '../types';
 import { HangmanFigure } from './HangmanFigure';
 import { cn } from '../lib/utils';
 import confetti from 'canvas-confetti';
-import { auth, saveUserScore } from '../firebase';
+import { auth, saveUserScore, getCurrentUser } from '../firebase';
 import { playSound } from '../audio';
 import { Clock } from 'lucide-react';
+
+import { LiveClassStats } from './LiveClassStats';
 
 interface WordData {
   word: string;
@@ -17,11 +19,12 @@ interface GameProps {
   onBack: () => void;
   customWords?: {word: string, hint: string}[];
   globalEndTime?: number | null;
+  roomPin?: string;
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
 
-export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEndTime }) => {
+export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEndTime, roomPin }) => {
   const [wordData, setWordData] = useState<WordData | null>(null);
   const [guessedLetters, setGuessedLetters] = useState<Set<string>>(new Set());
   const [mistakes, setMistakes] = useState(0);
@@ -190,9 +193,30 @@ Instrucciones críticas:
   }, [guessedLetters, mistakes, wordData, gameState]);
 
   const updateUserScore = async (won: boolean) => {
-    if (!auth.currentUser) return;
-    const uid = auth.currentUser.uid;
-    const name = auth.currentUser.displayName || "Jugador";
+    const user = getCurrentUser();
+    
+    // Fallback if fully anonymous/offline without name
+    let uid = localStorage.getItem('guest_uid') || "local-guest-" + Math.floor(Math.random()*10000);
+    localStorage.setItem('guest_uid', uid);
+    
+    let name = "Jugador Anónimo";
+
+    if (user) {
+      uid = user.uid;
+      name = user.displayName || user.name || name;
+    } else {
+      // Maybe we stored name via lobby?
+      const localName = localStorage.getItem('local_user') || localStorage.getItem('student_name');
+      if (localName) {
+         try {
+           const parsed = JSON.parse(localName);
+           name = parsed.displayName || parsed.name || localName;
+         } catch {
+           name = localName;
+         }
+      }
+    }
+
     const timeSpent = Math.floor((Date.now() - startTime) / 1000); // in seconds
     
     // Points based on time and mistakes: base 10 + time bonus 
@@ -333,6 +357,12 @@ Instrucciones críticas:
           </div>
         </div>
       </div>
+
+      {roomPin && (
+         <div className="w-full max-w-4xl mt-8 pb-12">
+            <LiveClassStats joinedStudents={[]} gameEndTime={globalEndTime || null} roomPin={roomPin} />
+         </div>
+      )}
 
       {/* Game Over Modal overlay */}
       {gameState !== 'playing' && gameState !== 'completed' && (

@@ -18,7 +18,11 @@ const leaderboardListeners = new Set<(players: UserProfile[]) => void>();
 // Auth listener logic
 type AuthCallback = (user: any | null) => void;
 const authListeners = new Set<AuthCallback>();
-let currentAuthUser: any | null = null;
+export let currentAuthUser: any | null = null;
+
+export const getCurrentUser = () => {
+  return currentAuthUser || auth.currentUser;
+};
 
 // Initialize Auth listener
 firebaseOnAuthStateChanged(auth, (firebaseUser) => {

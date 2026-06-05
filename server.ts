@@ -52,8 +52,8 @@ app.post("/api/game-state", (req, res) => {
 
   // If we are destroying a room
   if (isActive === false && activeRooms[roomPin]) {
-    delete activeRooms[roomPin];
-    return res.json({ success: true, state: { isActive: false, roomPin: '' } });
+    activeRooms[roomPin].isActive = false;
+    return res.json({ success: true, state: activeRooms[roomPin] });
   }
 
   if (!activeRooms[roomPin]) {
@@ -114,6 +114,24 @@ function createRoomStats() {
 app.post("/api/stats", (req, res) => {
   const { uid, name, won, word, score, roomPin } = req.body;
   
+  // Aggregate to global stats
+  classStats.totalGames += 1;
+  if (!classStats.liveResults) classStats.liveResults = [];
+  classStats.liveResults.push({ uid, name, won, word, score, time: Date.now() });
+
+  if (uid && name) {
+    if (!classStats.players[uid]) classStats.players[uid] = { name, score: 0, gamesPlayed: 0 };
+    classStats.players[uid].gamesPlayed += 1;
+    classStats.players[uid].score += score || 0;
+    classStats.players[uid].name = name;
+  }
+  if (won) {
+    classStats.totalWins += 1;
+  } else if (word) {
+    classStats.failedWords[word] = (classStats.failedWords[word] || 0) + 1;
+  }
+
+  // Also to room stats if provided
   if (roomPin && activeRooms[roomPin]) {
     const room = activeRooms[roomPin];
     if (!room.stats) room.stats = createRoomStats();
@@ -146,7 +164,7 @@ app.get("/api/class-stats", (req, res) => {
   if (roomPin && activeRooms[roomPin] && activeRooms[roomPin].stats) {
     res.json({ results: activeRooms[roomPin].stats.liveResults });
   } else {
-    res.json({ results: [] });
+    res.json({ results: classStats.liveResults || [] });
   }
 });
 
@@ -161,7 +179,22 @@ app.get("/api/stats", (req, res) => {
   if (roomPin && activeRooms[roomPin] && activeRooms[roomPin].stats) {
     res.json(activeRooms[roomPin].stats);
   } else {
-    res.json(createRoomStats());
+    res.json(classStats);
+  }
+});
+
+// Obtener leaderboard público de la sala
+app.get("/api/room-leaderboard", (req, res) => {
+  const roomPin = req.query.roomPin as string;
+  if (roomPin && activeRooms[roomPin] && activeRooms[roomPin].stats) {
+    const players = activeRooms[roomPin].stats.players;
+    const leaderboard = Object.values(players).map((p: any) => ({
+      name: p.name,
+      score: p.score
+    })).sort((a: any, b: any) => b.score - a.score);
+    res.json({ leaderboard });
+  } else {
+    res.json({ leaderboard: [] });
   }
 });
 
@@ -173,6 +206,8 @@ app.post("/api/stats/reset", (req, res) => {
   }
   if (roomPin && activeRooms[roomPin]) {
     activeRooms[roomPin].stats = createRoomStats();
+  } else {
+    classStats = createRoomStats();
   }
   res.json({ success: true });
 });
