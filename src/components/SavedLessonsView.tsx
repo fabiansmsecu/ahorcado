@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Lesson, GameMode } from '../types';
-import { getLessons, deleteLesson } from '../firebase';
-import { BookOpen, Play, Calendar, Search, Trash2 } from 'lucide-react';
+import { getLessons, deleteLesson, updateLesson } from '../firebase';
+import { BookOpen, Play, Calendar, Search, Trash2, Edit2, X, Plus, Save } from 'lucide-react';
 
 interface SavedLessonsViewProps {
   onBack: () => void;
@@ -12,6 +12,42 @@ export const SavedLessonsView: React.FC<SavedLessonsViewProps> = ({ onBack, onPl
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+
+  const handleUpdateWord = (index: number, field: 'word' | 'hint', value: string) => {
+    if (!editingLesson) return;
+    const newWords = [...editingLesson.words];
+    newWords[index] = { ...newWords[index], [field]: value };
+    setEditingLesson({ ...editingLesson, words: newWords });
+  };
+
+  const handleRemoveWord = (index: number) => {
+    if (!editingLesson) return;
+    const newWords = [...editingLesson.words];
+    newWords.splice(index, 1);
+    setEditingLesson({ ...editingLesson, words: newWords });
+  };
+
+  const handleAddWord = () => {
+    if (!editingLesson) return;
+    setEditingLesson({ ...editingLesson, words: [...editingLesson.words, { word: '', hint: '' }] });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingLesson) return;
+    try {
+      await updateLesson(editingLesson.id, { 
+        title: editingLesson.title,
+        subject: editingLesson.subject,
+        words: editingLesson.words.filter(w => w.word.trim() && w.hint.trim()) // simple validation
+      });
+      setLessons(prev => prev.map(l => l.id === editingLesson.id ? editingLesson : l));
+      setEditingLesson(null);
+    } catch(e) {
+      console.error(e);
+      alert("Error al guardar.");
+    }
+  };
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -113,6 +149,13 @@ export const SavedLessonsView: React.FC<SavedLessonsViewProps> = ({ onBack, onPl
                                 <Trash2 className="w-5 h-5" />
                              </button>
                              <button 
+                                onClick={() => setEditingLesson(JSON.parse(JSON.stringify(lesson)))}
+                                className="brutal-btn bg-[#f5f5f5] text-[var(--dark)] p-2 flex items-center justify-center shadow-[2px_2px_0_0_var(--dark)] border-2 border-[var(--dark)] hover:bg-[#e0e0e0]"
+                                title="Editar lección"
+                             >
+                                <Edit2 className="w-5 h-5" />
+                             </button>
+                             <button 
                                 onClick={() => onPlayLesson(lesson.words, lesson.mode)}
                                 className="w-full brutal-btn bg-[var(--secondary)] text-white py-2 flex items-center justify-center gap-2 shadow-[2px_2px_0_0_var(--dark)]"
                              >
@@ -127,6 +170,107 @@ export const SavedLessonsView: React.FC<SavedLessonsViewProps> = ({ onBack, onPl
             </div>
          )}
       </div>
+
+      {/* Edit Modal */}
+      {editingLesson && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white brutal-box border-4 border-[var(--dark)] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-[8px_8px_0_0_var(--dark)]">
+            <div className="flex justify-between items-center border-b-4 border-[var(--dark)] p-4 bg-gray-50">
+              <h2 className="text-2xl font-black uppercase text-[var(--primary)] flex items-center gap-2">
+                <Edit2 className="w-6 h-6" /> Editar Lección
+              </h2>
+              <button 
+                onClick={() => setEditingLesson(null)}
+                className="hover:bg-red-100 p-2 brutal-btn border-2"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold mb-2 uppercase">Materia</label>
+                  <input 
+                    type="text" 
+                    value={editingLesson.subject}
+                    onChange={(e) => setEditingLesson({...editingLesson, subject: e.target.value})}
+                    className="w-full p-3 brutal-box font-bold border-2 focus:border-[var(--primary)] outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold mb-2 uppercase">Título / Tema</label>
+                  <input 
+                    type="text" 
+                    value={editingLesson.title}
+                    onChange={(e) => setEditingLesson({...editingLesson, title: e.target.value})}
+                    className="w-full p-3 brutal-box font-bold border-2 focus:border-[var(--primary)] outline-none bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold mb-2 uppercase flex justify-between items-center">
+                  <span>Palabras de la Lección ({editingLesson.words.length})</span>
+                  <button 
+                    onClick={handleAddWord}
+                    className="brutal-btn bg-gray-200 px-3 py-1 text-sm font-bold flex items-center gap-1 shadow-[2px_2px_0_0_var(--dark)]"
+                  >
+                    <Plus className="w-4 h-4" /> Agregar Palabra
+                  </button>
+                </label>
+                <div className="space-y-3 bg-gray-50 p-4 border-2 border-[var(--dark)]">
+                  {editingLesson.words.map((w, index) => (
+                    <div key={index} className="flex gap-2 items-center bg-white border-2 border-[var(--dark)] p-2">
+                       <span className="font-bold w-6 text-center">{index + 1}.</span>
+                       <input 
+                         type="text"
+                         value={w.word}
+                         onChange={(e) => handleUpdateWord(index, 'word', e.target.value)}
+                         placeholder="EJ: ECONOMIA"
+                         className="flex-1 p-2 font-bold outline-none uppercase bg-gray-100 border-2 border-transparent focus:border-[var(--primary)]"
+                       />
+                       <input 
+                         type="text"
+                         value={w.hint}
+                         onChange={(e) => handleUpdateWord(index, 'hint', e.target.value)}
+                         placeholder="Pista... EJ: Ciencia que estudia los recursos..."
+                         className="flex-[2] p-2 font-medium outline-none bg-gray-100 border-2 border-transparent focus:border-[var(--primary)]"
+                       />
+                       <button 
+                         onClick={() => handleRemoveWord(index)}
+                         className="p-2 text-red-500 hover:bg-red-100 brutal-btn border-2"
+                         title="Eliminar palabra"
+                       >
+                         <Trash2 className="w-5 h-5"/>
+                       </button>
+                    </div>
+                  ))}
+                  {editingLesson.words.length === 0 && (
+                    <p className="text-center font-bold text-red-500">Agrega al menos una palabra para que la lección sea válida.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t-4 border-[var(--dark)] bg-gray-50 flex justify-end gap-4">
+               <button 
+                 onClick={() => setEditingLesson(null)}
+                 className="brutal-btn bg-gray-200 px-6 py-3 font-bold shadow-[2px_2px_0_0_var(--dark)]"
+               >
+                 Cancelar
+               </button>
+               <button 
+                 onClick={handleSaveEdit}
+                 disabled={editingLesson.words.length === 0 || !editingLesson.subject.trim() || !editingLesson.title.trim()}
+                 className="brutal-btn bg-green-500 text-white px-6 py-3 font-black flex items-center gap-2 shadow-[2px_2px_0_0_var(--dark)] disabled:opacity-50"
+               >
+                 <Save className="w-5 h-5" /> Guardar Cambios
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

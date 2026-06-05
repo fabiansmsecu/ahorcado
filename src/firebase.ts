@@ -335,6 +335,42 @@ export async function deleteLesson(id: string): Promise<void> {
   }
 }
 
+export async function updateLesson(id: string, updates: Partial<Lesson>): Promise<void> {
+  if (isFallbackMode) {
+    const raw = localStorage.getItem('local_lessons');
+    if (raw) {
+      try {
+        const lessons: Lesson[] = JSON.parse(raw);
+        const index = lessons.findIndex(l => l.id === id);
+        if (index !== -1) {
+          lessons[index] = { ...lessons[index], ...updates };
+          localStorage.setItem('local_lessons', JSON.stringify(lessons));
+        }
+      } catch {}
+    }
+    return;
+  }
+
+  try {
+    const docRef = doc(db, 'lessons', id);
+    await updateDoc(docRef, updates);
+  } catch (error) {
+    console.error("Error updating lesson in Firestore", error);
+    // fallback logic just in case
+    const raw = localStorage.getItem('local_lessons');
+    if (raw) {
+      try {
+        const lessons: Lesson[] = JSON.parse(raw);
+        const index = lessons.findIndex(l => l.id === id);
+        if (index !== -1) {
+          lessons[index] = { ...lessons[index], ...updates };
+          localStorage.setItem('local_lessons', JSON.stringify(lessons));
+        }
+      } catch {}
+    }
+  }
+}
+
 export async function saveLesson(subject: string, title: string, words: CustomWord[], mode: string): Promise<Lesson> {
   const lessonData = {
     subject,
