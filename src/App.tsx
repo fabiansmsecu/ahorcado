@@ -427,7 +427,7 @@ export default function App() {
               )}
 
               {globalState.isActive && globalState.isPlaying && (
-                <LiveClassStats joinedStudents={globalState.joinedStudents || []} gameEndTime={globalState.gameEndTime} />
+                <LiveClassStats joinedStudents={globalState.joinedStudents || []} gameEndTime={globalState.gameEndTime} roomPin={globalState.roomPin} />
               )}
             </div>
 

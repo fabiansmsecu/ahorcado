@@ -217,7 +217,8 @@ Instrucciones críticas:
           name, 
           won, 
           word: wordData?.word, 
-          score: won ? 10 : 0 
+          score: won ? 10 : 0,
+          roomPin: localStorage.getItem('last_room_pin')
         })
       });
     } catch (e) {

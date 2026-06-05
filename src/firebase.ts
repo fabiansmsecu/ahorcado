@@ -102,18 +102,12 @@ export const logout = async () => {
 function getLocalScores(): UserProfile[] {
   const scoresStr = localStorage.getItem('local_scores');
   if (!scoresStr) {
-    // Seed with some neat initial rankings to make it feel alive!
-    const defaultScores: UserProfile[] = [
-      { uid: 'seed-1', name: 'Sofía Gómez', score: 120 },
-      { uid: 'seed-2', name: 'Eduardo Ruiz', score: 90 },
-      { uid: 'seed-3', name: 'Mateo Sanz', score: 70 },
-      { uid: 'seed-4', name: 'León (IA)', score: 50 },
-    ];
-    localStorage.setItem('local_scores', JSON.stringify(defaultScores));
-    return defaultScores;
+    return [];
   }
   try {
-    return JSON.parse(scoresStr);
+    const scores = JSON.parse(scoresStr) as UserProfile[];
+    // Filter out seed user hallucinated data
+    return scores.filter(s => !s.uid.startsWith('seed-'));
   } catch {
     return [];
   }

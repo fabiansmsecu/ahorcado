@@ -99,52 +99,81 @@ app.post("/api/join-lobby", (req, res) => {
   }
 });
 
+// Setup room stats factory
+function createRoomStats() {
+  return {
+    players: {} as Record<string, { name: string, score: number, gamesPlayed: number }>,
+    failedWords: {} as Record<string, number>,
+    totalGames: 0,
+    totalWins: 0,
+    liveResults: [] as any[] // For LiveClassStats
+  };
+}
+
 // Guardar resultados de una partida (estudiantes)
 app.post("/api/stats", (req, res) => {
-  const { uid, name, won, word, score } = req.body;
+  const { uid, name, won, word, score, roomPin } = req.body;
   
-  if (uid && name) {
-    if (!classStats.players[uid]) {
-      classStats.players[uid] = { name, score: 0, gamesPlayed: 0 };
-    }
-    classStats.players[uid].gamesPlayed += 1;
-    classStats.players[uid].score += score || 0;
-    // Keep name updated
-    classStats.players[uid].name = name;
-  }
+  if (roomPin && activeRooms[roomPin]) {
+    const room = activeRooms[roomPin];
+    if (!room.stats) room.stats = createRoomStats();
+    
+    // Add to live results
+    room.stats.liveResults.push({ uid, name, won, word, score, time: Date.now() });
 
-  classStats.totalGames += 1;
-  if (won) {
-    classStats.totalWins += 1;
-  } else if (word) {
-    classStats.failedWords[word] = (classStats.failedWords[word] || 0) + 1;
+    if (uid && name) {
+      if (!room.stats.players[uid]) {
+        room.stats.players[uid] = { name, score: 0, gamesPlayed: 0 };
+      }
+      room.stats.players[uid].gamesPlayed += 1;
+      room.stats.players[uid].score += score || 0;
+      room.stats.players[uid].name = name;
+    }
+
+    room.stats.totalGames += 1;
+    if (won) {
+      room.stats.totalWins += 1;
+    } else if (word) {
+      room.stats.failedWords[word] = (room.stats.failedWords[word] || 0) + 1;
+    }
   }
 
   res.json({ success: true });
 });
 
+app.get("/api/class-stats", (req, res) => {
+  const roomPin = req.query.roomPin as string;
+  if (roomPin && activeRooms[roomPin] && activeRooms[roomPin].stats) {
+    res.json({ results: activeRooms[roomPin].stats.liveResults });
+  } else {
+    res.json({ results: [] });
+  }
+});
+
 // Obtener estadísticas (solo profesor)
 app.get("/api/stats", (req, res) => {
   const pin = req.query.pin;
+  const roomPin = req.query.roomPin as string;
   if (pin !== TEACHER_PIN) {
-    console.log("Teacher pin mismatch in GET /api/stats. Expected:", TEACHER_PIN, "Got:", pin);
     return res.status(403).json({ error: "PIN incorrecto" });
   }
-  res.json(classStats);
+  
+  if (roomPin && activeRooms[roomPin] && activeRooms[roomPin].stats) {
+    res.json(activeRooms[roomPin].stats);
+  } else {
+    res.json(createRoomStats());
+  }
 });
 
 // Reiniciar estadísticas (solo profesor)
 app.post("/api/stats/reset", (req, res) => {
-  const { pin } = req.body;
+  const { pin, roomPin } = req.body;
   if (pin !== TEACHER_PIN) {
     return res.status(403).json({ error: "PIN incorrecto" });
   }
-  classStats = {
-    players: {},
-    failedWords: {},
-    totalGames: 0,
-    totalWins: 0
-  };
+  if (roomPin && activeRooms[roomPin]) {
+    activeRooms[roomPin].stats = createRoomStats();
+  }
   res.json({ success: true });
 });
 // ------------------------------------------------

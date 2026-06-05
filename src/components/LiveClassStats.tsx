@@ -11,14 +11,14 @@ interface Result {
   time: number;
 }
 
-export function LiveClassStats({ joinedStudents, gameEndTime }: { joinedStudents: string[], gameEndTime: number | null }) {
+export function LiveClassStats({ joinedStudents, gameEndTime, roomPin }: { joinedStudents: string[], gameEndTime: number | null, roomPin: string }) {
   const [results, setResults] = useState<Result[]>([]);
   const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/class-stats');
+        const res = await fetch(`/api/class-stats?roomPin=${encodeURIComponent(roomPin)}`);
         const data = await res.json();
         setResults(data.results || []);
       } catch (e) {}
