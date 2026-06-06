@@ -61,7 +61,7 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
   if (!stats) return <div className="text-center font-bold uppercase py-12 text-red-500">Error al cargar estadísticas</div>;
 
   // Prepare active players data
-  const playersMap = Object.values(stats.players);
+  const playersMap = Object.values(stats.players) as { name: string; score: number; gamesPlayed: number }[];
   const activePlayersData = playersMap
     .sort((a, b) => b.gamesPlayed - a.gamesPlayed)
     .slice(0, 5) // top 5 most active
@@ -71,8 +71,9 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
     }));
 
   // Prepare failed words data
-  const failedWordsData = Object.entries(stats.failedWords)
-    .map(([word, fails]) => ({ word, fallos: fails }))
+  const failedWordsMap = Object.entries(stats.failedWords) as [string, number][];
+  const failedWordsData = failedWordsMap
+    .map(([word, fails]) => ({ word, fallos: Number(fails) }))
     .sort((a, b) => b.fallos - a.fallos)
     .slice(0, 5); // top 5 failed
 

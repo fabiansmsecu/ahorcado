@@ -21,11 +21,15 @@ export interface UserStats {
   totalTime: number; // in seconds
   wordsGuessed: string[];
   achievements: string[];
+  currentStreak?: number;
+  maxStreak?: number;
+  flawlessVictories?: number;
 }
 
 export interface UserProfile {
   uid: string;
   name: string;
+  username?: string;
   score: number;
   stats?: UserStats;
 }

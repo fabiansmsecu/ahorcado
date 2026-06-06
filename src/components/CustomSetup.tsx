@@ -4,7 +4,7 @@ import { BookOpen, FileText, Loader2, Save } from 'lucide-react';
 import { saveLesson } from '../firebase';
 
 interface CustomSetupProps {
-  onStart: (words: { word: string; hint: string }[], mode: string) => void;
+  onStart: (words: { word: string; hint: string }[], mode: string, maxAttempts?: number) => void;
   onBack: () => void;
 }
 
@@ -13,6 +13,7 @@ export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => 
   const [inputType, setInputType] = useState<'text' | 'words'>('text');
   const [mode, setMode] = useState<string>('dificil');
   const [wordCount, setWordCount] = useState<number>(10);
+  const [maxAttempts, setMaxAttempts] = useState<number>(1);
   
   // Custom lesson metadata
   const [subject, setSubject] = useState('');
@@ -86,7 +87,7 @@ ${text}`;
         // Save the generated lesson in Firebase
         await saveLesson(subject.trim(), lessonTitle.trim(), cleanedWords, mode);
 
-        onStart(cleanedWords, mode);
+        onStart(cleanedWords, mode, maxAttempts);
       } else {
         throw new Error("El formato de respuesta de la IA fue incorrecto o está vacío.");
       }
@@ -173,7 +174,7 @@ ${text}`;
           />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           <div className="space-y-4">
             <label className="font-black text-[var(--dark)] text-lg uppercase">3. Dificultad</label>
             <div className="flex flex-col gap-2">
@@ -210,6 +211,21 @@ ${text}`;
               <option value={15}>15 Palabras</option>
               <option value={20}>20 Palabras</option>
             </select>
+          </div>
+
+          <div className="space-y-4">
+            <label className="font-black text-[var(--dark)] text-lg uppercase">5. Intentos MÁX</label>
+            <select 
+              className="w-full p-3 brutal-box bg-white font-bold outline-none cursor-pointer"
+              value={maxAttempts}
+              onChange={(e) => setMaxAttempts(Number(e.target.value))}
+            >
+              <option value={1}>1 Intento</option>
+              <option value={2}>2 Intentos</option>
+              <option value={3}>3 Intentos</option>
+              <option value={0}>Sin límite</option>
+            </select>
+            <p className="text-sm font-bold text-gray-500 leading-tight">Veces que los alumnos pueden completar esta lección antes de bloquear el sistema.</p>
           </div>
         </div>
 

@@ -112,7 +112,7 @@ export const SavedLessonsView: React.FC<SavedLessonsViewProps> = ({ onBack, onPl
              </div>
          ) : (
             <div className="space-y-8">
-              {Object.entries(groupedLessons).map(([subject, subLessons]) => (
+              {(Object.entries(groupedLessons) as [string, any[]][]).map(([subject, subLessons]) => (
                 <div key={subject} className="space-y-4">
                    <h3 className="text-3xl font-black uppercase text-[var(--primary)] border-b-4 border-black pb-2">📂 {subject}</h3>
                    <div className="grid md:grid-cols-2 gap-4">

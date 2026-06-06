@@ -17,7 +17,7 @@ type AppRole = 'student' | 'teacher' | null;
 export default function App() {
   const [curScreen, setCurScreen] = useState<Screen>('menu');
   const [role, setRole] = useState<AppRole>(null);
-  const [globalState, setGlobalState] = useState<{isActive: boolean, isPlaying: boolean, roomPin: string, mode: string, customWords: any, sessionId: string, joinedStudents: string[], gameEndTime: number | null}>({isActive: false, isPlaying: false, roomPin: '', mode: 'infantil', customWords: null, sessionId: '', joinedStudents: [], gameEndTime: null});
+  const [globalState, setGlobalState] = useState<{isActive: boolean, isPlaying: boolean, roomPin: string, mode: string, customWords: any, sessionId: string, joinedStudents: string[], gameEndTime: number | null, attemptsLimit?: number}>({isActive: false, isPlaying: false, roomPin: '', mode: 'infantil', customWords: null, sessionId: '', joinedStudents: [], gameEndTime: null, attemptsLimit: 0});
   const [currentSession, setCurrentSession] = useState('');
 
   const [mode, setMode] = useState<GameMode>('infantil');
@@ -27,7 +27,9 @@ export default function App() {
 
   // Nickname registration state
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [nicknameInput, setNicknameInput] = useState('');
+  const [firstNameInput, setFirstNameInput] = useState('');
+  const [lastNameInput, setLastNameInput] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
   const [studentPinInput, setStudentPinInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
@@ -102,7 +104,13 @@ export default function App() {
           
           // Auto-start student if game transitions from lobby to playing
           if (role === 'student' && user && curScreen === 'menu' && data.isActive && data.isPlaying && data.roomPin === localStorage.getItem('last_room_pin')) {
-             startGame(data.mode as GameMode, data.customWords);
+             const attemptsInfo = localStorage.getItem(`attempts_${data.sessionId}`);
+             const attempts = attemptsInfo ? parseInt(attemptsInfo, 10) : 0;
+             if (data.attemptsLimit && data.attemptsLimit > 0 && attempts >= data.attemptsLimit) {
+                // Prevent auto-starting if limit is reached
+             } else {
+                startGame(data.mode as GameMode, data.customWords, data.sessionId);
+             }
           }
         }
       } catch (e) {}
@@ -112,13 +120,24 @@ export default function App() {
     return () => clearInterval(interval);
   }, [curScreen, currentSession, role, user]);
 
-  const startGame = (m: GameMode, words?: {word: string, hint: string}[]) => {
+  const startGame = (m: GameMode, words?: {word: string, hint: string}[], sessionIdToTrack?: string) => {
+    if (role === 'student' && sessionIdToTrack) {
+       const attemptsInfo = localStorage.getItem(`attempts_${sessionIdToTrack}`);
+       const attempts = attemptsInfo ? parseInt(attemptsInfo, 10) : 0;
+       
+       if (globalState.attemptsLimit && globalState.attemptsLimit > 0 && attempts >= globalState.attemptsLimit) {
+           showToast("Ya has alcanzado el límite de intentos para esta lección.", true);
+           return;
+       }
+       localStorage.setItem(`attempts_${sessionIdToTrack}`, (attempts + 1).toString());
+    }
+
     setMode(m);
     setCustomWords(words);
     setCurScreen('game');
   };
 
-  const publishGame = async (m: GameMode, words?: {word: string, hint: string}[]) => {
+  const publishGame = async (m: GameMode, words?: {word: string, hint: string}[], attemptsLimit?: number) => {
     const pin = localStorage.getItem('teacher_pin') || '';
     const roomPinCode = buildRoomPin();
     const defaultTime = words ? words.length * 2 : (m === 'infantil' ? 10 : 15);
@@ -135,7 +154,8 @@ export default function App() {
           isPlaying: false, // starts in lobby
           roomPin: roomPinCode,
           forceRestart: true,
-          gameEndTime: null
+          gameEndTime: null,
+          attemptsLimit: attemptsLimit || 0
         })
       });
       if (res.ok) {
@@ -205,11 +225,11 @@ export default function App() {
               <span className="hidden sm:inline-block stat-badge text-sm">Jugador: {user.displayName} ✨</span>
               <button 
                 onClick={logout} 
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors tooltip border-2 border-transparent cursor-pointer" 
-                aria-label="Cerrar sesión"
-                title="Cerrar sesión"
+                className="flex items-center gap-2 bg-red-500 border-[2px] border-[var(--dark)] px-4 py-2 rounded-[12px] font-bold tracking-tight hover:brightness-95 cursor-pointer shadow-[2px_2px_0px_rgba(27,26,25,1)] hover:translate-y-[-1px] transition-all text-xs uppercase text-white"
+                title="Borrar o Cambiar mi Nombre"
               >
-                <LogOut className="w-5 h-5 text-[var(--dark)]" />
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Cambiar Nombre</span>
               </button>
             </div>
           ) : (
@@ -301,12 +321,26 @@ export default function App() {
                 <p className="font-bold opacity-70 mb-8 text-xl">
                   Modalidad: <span className="uppercase badge bg-[var(--accent)] px-3 py-1 rounded-full border-2 border-black ml-2 shadow-[2px_2px_0_0_var(--dark)]">{globalState.mode === 'infantil' ? 'Infantil' : globalState.mode === 'universitario' ? 'Universitario' : 'Lección Propia'}</span>
                 </p>
-                <button 
-                   onClick={() => startGame(globalState.mode as GameMode, globalState.customWords)}
-                   className="brutal-btn bg-[var(--secondary)] text-white text-2xl py-6 px-12 animate-pulse hover:animate-none cursor-pointer"
-                >
-                  🚀 ¡Entrar a Jugar!
-                </button>
+                {(() => {
+                   const attemptsInfo = localStorage.getItem(`attempts_${globalState.sessionId}`);
+                   const attempts = attemptsInfo ? parseInt(attemptsInfo, 10) : 0;
+                   const limit = globalState.attemptsLimit || 0;
+                   if (limit > 0 && attempts >= limit) {
+                     return (
+                         <div className="bg-red-100 border-2 border-red-500 text-red-700 font-bold p-4 rounded-xl text-lg">
+                            Has alcanzado el límite de intentos permitidos ({limit}) para esta lección.
+                         </div>
+                     );
+                   }
+                   return (
+                     <button 
+                        onClick={() => startGame(globalState.mode as GameMode, globalState.customWords, globalState.sessionId)}
+                        className="brutal-btn bg-[var(--secondary)] text-white text-2xl py-6 px-12 animate-pulse hover:animate-none cursor-pointer"
+                     >
+                       🚀 ¡Entrar a Jugar!
+                     </button>
+                   );
+                })()}
               </div>
             ) : (
               <div className="brutal-box p-12 bg-gray-50 border-dashed border-gray-300 border-[4px] shadow-none">
@@ -582,8 +616,8 @@ export default function App() {
 
         {curScreen === 'setup' && (
           <CustomSetup 
-             onStart={(words, m) => {
-               if (role === 'teacher') publishGame(m as GameMode, words);
+             onStart={(words, m, attempts) => {
+               if (role === 'teacher') publishGame(m as GameMode, words, attempts);
                setCurScreen('menu'); // returns teacher to panel
              }} 
              onBack={() => setCurScreen('menu')} 
@@ -633,26 +667,58 @@ export default function App() {
 
             <form onSubmit={(e) => {
               e.preventDefault();
-              if (!nicknameInput.trim()) {
-                setLoginError('Por favor redacta un apodo válido.');
+              if (!firstNameInput.trim() || !lastNameInput.trim() || !usernameInput.trim()) {
+                setLoginError('Por favor completa todos los campos.');
                 return;
               }
-              loginWithNickname(nicknameInput.trim());
+              const formattedName = `${firstNameInput.trim()} ${lastNameInput.trim()} (@${usernameInput.trim()})`;
+              loginWithNickname(formattedName, usernameInput.trim());
               setShowLoginModal(false);
-              setNicknameInput('');
+              setFirstNameInput('');
+              setLastNameInput('');
+              setUsernameInput('');
               setLoginError('');
             }} className="space-y-4">
+              <div className="flex gap-2">
+                <div className="w-1/2">
+                  <label className="block text-sm font-black uppercase text-[var(--dark)] mb-1">
+                    Nombre
+                  </label>
+                  <input 
+                    type="text"
+                    maxLength={20}
+                    value={firstNameInput}
+                    onChange={(e) => setFirstNameInput(e.target.value)}
+                    placeholder="Ej: Juan" 
+                    className="w-full p-3 brutal-box text-sm font-bold outline-none border-[3px] border-[var(--dark)] focus:border-[var(--primary)] placeholder:opacity-50 bg-white"
+                  />
+                </div>
+                <div className="w-1/2">
+                  <label className="block text-sm font-black uppercase text-[var(--dark)] mb-1">
+                    Apellido
+                  </label>
+                  <input 
+                    type="text"
+                    maxLength={20}
+                    value={lastNameInput}
+                    onChange={(e) => setLastNameInput(e.target.value)}
+                    placeholder="Ej: Pérez" 
+                    className="w-full p-3 brutal-box text-sm font-bold outline-none border-[3px] border-[var(--dark)] focus:border-[var(--primary)] placeholder:opacity-50 bg-white"
+                  />
+                </div>
+              </div>
+              
               <div>
                 <label className="block text-sm font-black uppercase text-[var(--dark)] mb-1">
-                  Nombre o Apodo
+                  Usuario Corto
                 </label>
                 <input 
                   type="text"
-                  maxLength={15}
-                  value={nicknameInput}
-                  onChange={(e) => setNicknameInput(e.target.value)}
-                  placeholder="Ej: Sofía.G" 
-                  className="w-full p-3 brutal-box text-lg font-bold outline-none border-[3px] border-[var(--dark)] focus:border-[var(--primary)] placeholder:opacity-50 bg-white"
+                  maxLength={10}
+                  value={usernameInput}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                  placeholder="Ej: juanperez1" 
+                  className="w-full p-3 brutal-box text-sm font-bold outline-none border-[3px] border-[var(--dark)] focus:border-[var(--primary)] placeholder:opacity-50 bg-white"
                 />
               </div>
 
@@ -670,21 +736,6 @@ export default function App() {
                 ¡Listo!
               </button>
             </form>
-
-            {!isFallbackMode && (
-              <div className="mt-6 pt-6 border-t-[3px] border-dashed border-gray-200 flex flex-col gap-3">
-                <span className="text-xs font-black text-center uppercase opacity-50">O bien</span>
-                <button 
-                  onClick={async () => {
-                    await loginWithGoogle();
-                    setShowLoginModal(false);
-                  }}
-                  className="w-full brutal-btn bg-[var(--accent)] text-[var(--dark)] flex items-center justify-center gap-2 hover:brightness-95 py-3 text-sm cursor-pointer shadow-[3px_3px_0px_rgba(27,26,25,1)] font-bold uppercase border-[3px]"
-                >
-                  Unirse con Google
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}

@@ -227,7 +227,7 @@ Instrucciones críticas:
     }
 
     try {
-      await saveUserScore(uid, name, points, won, wordData?.word, timeSpent);
+      await saveUserScore(uid, name, points, won, wordData?.word, timeSpent, mistakes);
     } catch (error) {
       console.warn("Could not save score:", error);
     }

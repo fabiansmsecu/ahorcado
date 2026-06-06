@@ -71,12 +71,13 @@ export const loginWithGoogle = async () => {
   }
 };
 
-export const loginWithNickname = (name: string) => {
+export const loginWithNickname = (name: string, username: string = '') => {
   const uid = 'local-' + Math.random().toString(36).substr(2, 9);
   const localUser = {
     uid,
     displayName: name,
     photoURL: null,
+    username: username || uid,
     isLocal: true
   };
   localStorage.setItem('local_user', JSON.stringify(localUser));
@@ -100,6 +101,42 @@ export const logout = async () => {
   }
 };
 
+export const deleteUserAccount = async () => {
+  const user = currentAuthUser || auth.currentUser;
+  if (!user) return;
+  const uid = user.uid;
+
+  // Clear local user storage
+  localStorage.removeItem('local_user');
+  currentAuthUser = null;
+
+  // Delete from local scores
+  const scoresStr = localStorage.getItem('local_scores');
+  if (scoresStr) {
+    try {
+      let scores = JSON.parse(scoresStr) as UserProfile[];
+      scores = scores.filter(s => s.uid !== uid);
+      localStorage.setItem('local_scores', JSON.stringify(scores));
+      notifyLeaderboardListeners(scores);
+    } catch (e) {}
+  }
+
+  // If using live firebase, attempt to delete the user document
+  if (!isFallbackMode && !uid.startsWith('local-')) {
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        await currentUser.delete();
+      }
+    } catch (error) {
+      console.error("Error deleting user account from firebase", error);
+    }
+  }
+
+  notifyAuthListeners();
+};
+
 // --- Leaderboard & Score offline/online helpers ---
 
 // Get local scores
@@ -118,7 +155,7 @@ function getLocalScores(): UserProfile[] {
 }
 
 // Add local score
-function addLocalScore(uid: string, name: string, scoreToAdd: number, won?: boolean, word?: string, timeSpent?: number): number {
+function addLocalScore(uid: string, name: string, scoreToAdd: number, won?: boolean, word?: string, timeSpent?: number, mistakesMade?: number): number {
   const scores = getLocalScores();
   const existingIndex = scores.findIndex(s => s.uid === uid);
   let finalScore = scoreToAdd;
@@ -140,6 +177,16 @@ function addLocalScore(uid: string, name: string, scoreToAdd: number, won?: bool
     }
     
     // Check for new achievements
+    if (won) {
+      currentStats.currentStreak = (currentStats.currentStreak || 0) + 1;
+      currentStats.maxStreak = Math.max((currentStats.maxStreak || 0), currentStats.currentStreak);
+      if (mistakesMade === 0) {
+        currentStats.flawlessVictories = (currentStats.flawlessVictories || 0) + 1;
+      }
+    } else {
+      currentStats.currentStreak = 0;
+    }
+
     if (currentStats.gamesWon >= 1 && !currentStats.achievements.includes('Primer Triunfo')) {
       currentStats.achievements.push('Primer Triunfo');
     }
@@ -151,6 +198,18 @@ function addLocalScore(uid: string, name: string, scoreToAdd: number, won?: bool
     }
     if (currentStats.wordsGuessed.length >= 20 && !currentStats.achievements.includes('Diccionario Andante')) {
       currentStats.achievements.push('Diccionario Andante');
+    }
+    if (currentStats.flawlessVictories && currentStats.flawlessVictories >= 1 && !currentStats.achievements.includes('Impecable')) {
+      currentStats.achievements.push('Impecable');
+    }
+    if (currentStats.flawlessVictories && currentStats.flawlessVictories >= 5 && !currentStats.achievements.includes('Intocable')) {
+      currentStats.achievements.push('Intocable');
+    }
+    if (currentStats.currentStreak && currentStats.currentStreak >= 3 && !currentStats.achievements.includes('Racha x3')) {
+      currentStats.achievements.push('Racha x3');
+    }
+    if (currentStats.currentStreak && currentStats.currentStreak >= 5 && !currentStats.achievements.includes('Racha x5')) {
+      currentStats.achievements.push('Racha x5');
     }
   }
 
@@ -229,9 +288,9 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 }
 
 // Save user score (dual mode)
-export async function saveUserScore(uid: string, name: string, points: number, won?: boolean, word?: string, timeSpent?: number): Promise<number> {
+export async function saveUserScore(uid: string, name: string, points: number, won?: boolean, word?: string, timeSpent?: number, mistakesMade?: number): Promise<number> {
   if (isFallbackMode || uid.startsWith('local-')) {
-    return addLocalScore(uid, name, points, won, word, timeSpent);
+    return addLocalScore(uid, name, points, won, word, timeSpent, mistakesMade);
   }
 
   try {
@@ -262,17 +321,31 @@ export async function saveUserScore(uid: string, name: string, points: number, w
         stats.wordsGuessed.push(word);
       }
       
+      if (won) {
+        stats.currentStreak = (stats.currentStreak || 0) + 1;
+        stats.maxStreak = Math.max((stats.maxStreak || 0), stats.currentStreak);
+        if (mistakesMade === 0) {
+          stats.flawlessVictories = (stats.flawlessVictories || 0) + 1;
+        }
+      } else {
+        stats.currentStreak = 0;
+      }
+      
       if (stats.gamesWon >= 1 && !stats.achievements.includes('Primer Triunfo')) stats.achievements.push('Primer Triunfo');
       if (stats.gamesWon >= 5 && !stats.achievements.includes('Imparable')) stats.achievements.push('Imparable');
       if (stats.gamesWon >= 10 && !stats.achievements.includes('Maestro del Vocabulario')) stats.achievements.push('Maestro del Vocabulario');
       if (stats.wordsGuessed.length >= 20 && !stats.achievements.includes('Diccionario Andante')) stats.achievements.push('Diccionario Andante');
+      if (stats.flawlessVictories && stats.flawlessVictories >= 1 && !stats.achievements.includes('Impecable')) stats.achievements.push('Impecable');
+      if (stats.flawlessVictories && stats.flawlessVictories >= 5 && !stats.achievements.includes('Intocable')) stats.achievements.push('Intocable');
+      if (stats.currentStreak && stats.currentStreak >= 3 && !stats.achievements.includes('Racha x3')) stats.achievements.push('Racha x3');
+      if (stats.currentStreak && stats.currentStreak >= 5 && !stats.achievements.includes('Racha x5')) stats.achievements.push('Racha x5');
     }
 
     await setDoc(userRef, { uid, name, score: newScore, stats }, { merge: true });
     return newScore;
   } catch (error) {
     console.warn("Firestore save score failed, saving locally:", error);
-    return addLocalScore(uid, name, points, won, word, timeSpent);
+    return addLocalScore(uid, name, points, won, word, timeSpent, mistakesMade);
   }
 }
 

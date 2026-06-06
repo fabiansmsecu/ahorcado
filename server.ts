@@ -19,7 +19,8 @@ let classStats = {
   players: {} as Record<string, { name: string, score: number, gamesPlayed: number }>,
   failedWords: {} as Record<string, number>,
   totalGames: 0,
-  totalWins: 0
+  totalWins: 0,
+  liveResults: [] as any[]
 };
 
 const TEACHER_PIN = process.env.TEACHER_PIN || "profe123";
@@ -45,7 +46,7 @@ app.get("/api/game-state", (req, res) => {
 
 // Update the game state API
 app.post("/api/game-state", (req, res) => {
-  const { pin, mode, customWords, isActive, isPlaying, roomPin, forceRestart, gameEndTime } = req.body;
+  const { pin, mode, customWords, isActive, isPlaying, roomPin, forceRestart, gameEndTime, attemptsLimit } = req.body;
   if (pin !== TEACHER_PIN) {
     return res.status(403).json({ error: "PIN incorrecto" });
   }
@@ -66,7 +67,8 @@ app.post("/api/game-state", (req, res) => {
       customWords: customWords || null,
       sessionId: Date.now().toString(),
       joinedStudents: [],
-      gameEndTime: gameEndTime || null
+      gameEndTime: gameEndTime || null,
+      attemptsLimit: attemptsLimit || 0 // 0 means unlimited
     };
   } else {
     // Update existing room
@@ -80,6 +82,7 @@ app.post("/api/game-state", (req, res) => {
     currentRoom.sessionId = newSessionId;
     currentRoom.joinedStudents = forceRestart ? [] : currentRoom.joinedStudents;
     currentRoom.gameEndTime = gameEndTime !== undefined ? gameEndTime : currentRoom.gameEndTime;
+    if (attemptsLimit !== undefined) currentRoom.attemptsLimit = attemptsLimit;
   }
   
   res.json({ success: true, state: activeRooms[roomPin] });
