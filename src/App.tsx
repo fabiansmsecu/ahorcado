@@ -820,6 +820,21 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <footer className="mt-auto pt-8 text-center pb-4 text-sm font-bold text-gray-500">
+        <p>Una aplicación creada por <span className="text-gray-800">Fabián Delgado Loor</span></p>
+        <p className="mt-1">
+          <a 
+            href="https://deltechaudit.ec/quienes-somos/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="underline hover:text-[var(--primary)] transition-colors"
+          >
+            Deltech Audit
+          </a>
+        </p>
+      </footer>
     </div>
   );
 }
