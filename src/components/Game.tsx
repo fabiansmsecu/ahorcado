@@ -5,9 +5,11 @@ import { cn } from '../lib/utils';
 import confetti from 'canvas-confetti';
 import { auth, saveUserScore, getCurrentUser } from '../firebase';
 import { playSound } from '../audio';
-import { Clock } from 'lucide-react';
+import { Clock, Gamepad2, Grid, Search, Trophy, BookOpen } from 'lucide-react';
 
 import { LiveClassStats } from './LiveClassStats';
+import { CrosswordGame } from './CrosswordGame';
+import { WordSearchGame } from './WordSearchGame';
 
 interface WordData {
   word: string;
@@ -51,6 +53,18 @@ export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEnd
     { word: "CASA", hint: "Lugar donde vives con tu familia" }
   ];
 
+  const UNIVERSITARIO_WORDS = [
+    { word: "PARADIGMA", hint: "Modelo, patrón o ejemplo que sirve de referencia en una ciencia o disciplina." },
+    { word: "CATEDRA", hint: "Materia particular que enseña un profesor o aula donde se imparte." },
+    { word: "EPISTEME", hint: "Conocimiento científico o saberes firmemente establecidos y fundados." },
+    { word: "SINTESIS", hint: "Composición de un todo por la reunión de sus partes o resumen descriptivo." },
+    { word: "HEURISTICA", hint: "Arte o ciencia del descubrimiento, invención o resolución pragmática de problemas." },
+    { word: "EVIDENCIA", hint: "Certeza manifiesta y tan clara que nadie puede dudar legítimamente de ella." },
+    { word: "METODOLOGIA", hint: "Conjunto de procedimientos que se siguen rigurosamente en una investigación." },
+    { word: "ANALOGIA", hint: "Relación o correspondencia lógica de semejanza entre cosas distintas." }
+  ];
+
+  const [selectedStyle, setSelectedStyle] = useState<'selection' | 'ahorcado' | 'crucigrama' | 'sopa_letras'>('selection');
   const [startTime, setStartTime] = useState<number>(0);
 
   const fetchWord = async () => {
@@ -59,7 +73,19 @@ export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEnd
     setGuessedLetters(new Set());
     setMistakes(0);
     setGameState('playing');
-    setTimeLeft(120); // 120 seconds per word
+    
+    // Set dynamic limit depending on game difficulty mode
+    let initialTime = 90; // Default normal
+    if (mode === 'facil' || mode === 'infantil') {
+      initialTime = 120;
+    } else if (mode === 'dificil') {
+      initialTime = 75;
+    } else if (mode === 'superdificil') {
+      initialTime = 40; // High stakes pressure
+    } else if (mode === 'universitario') {
+      initialTime = 90;
+    }
+    setTimeLeft(initialTime);
     setStartTime(Date.now());
 
     if (remainingCustomWords !== null) {
@@ -87,12 +113,13 @@ export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEnd
     }
 
     try {
-      const prompt = `Genera una palabra secreta única en español para jugar al ahorcado nivel universitario (conceptos científicos, palabras cultas, filosofía, términos complejos).
+      const prompt = `Genera una palabra secreta única, educativa y sumamente interesante en español de nivel universitario (conceptos generales de administración, ciencia, historia, tecnología, literatura o sociedad).
+Evita a toda costa términos excesivamente raros, rebuscados, arcaicos o de uso extremadamente limitado. La palabra debe ser común y reconocible.
 Retorna la palabra y la pista separadas por un pipe (|).
-Ejemplo: EPISTEMOLOGÍA|Rama de la filosofía que estudia los principios, fundamentos, extensión y métodos del conocimiento humano.
+Ejemplo: TECNOLOGÍA|Conjunto de teorías y de técnicas que permiten el aprovechamiento práctico del conocimiento científico.
 Instrucciones críticas:
 1. La palabra debe ir ANTES del pipe, en MAYÚSCULAS, SIN TILDES, UNA SOLA PALABRA.
-2. La pista va DESPUÉS del pipe.
+2. La pista va DESPUÉS del pipe y debe ser clara e inteligente.
 3. No incluyas markdown ni nada más.`;
 
       const response = await fetch('/api/generate-word', {
@@ -250,6 +277,51 @@ Instrucciones críticas:
     }
   };
 
+  const saveCompletedGameScore = async (earnedPoints: number, secondsBeforeWin: number, gameStyleName: string) => {
+    const user = getCurrentUser();
+    let uid = localStorage.getItem('guest_uid') || "local-guest-" + Math.floor(Math.random()*10000);
+    localStorage.setItem('guest_uid', uid);
+    let name = "Jugador Anónimo";
+
+    if (user) {
+      uid = user.uid;
+      name = user.displayName || user.name || name;
+    } else {
+      const localName = localStorage.getItem('local_user') || localStorage.getItem('student_name');
+      if (localName) {
+         try {
+           const parsed = JSON.parse(localName);
+           name = parsed.displayName || parsed.name || localName;
+         } catch {
+           name = localName;
+         }
+      }
+    }
+
+    try {
+      await saveUserScore(uid, name, earnedPoints, true, `Completado: ${gameStyleName}`, secondsBeforeWin, 0);
+    } catch (error) {
+      console.warn("Could not save score:", error);
+    }
+
+    try {
+      await fetch('/api/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          uid, 
+          name, 
+          won: true, 
+          word: `Completado: ${gameStyleName}`, 
+          score: earnedPoints,
+          roomPin: localStorage.getItem('last_room_pin')
+        })
+      });
+    } catch (e) {
+      console.warn("Could not update class stats:", e);
+    }
+  };
+
   const handleGuess = (char: string) => {
     if (gameState !== 'playing' || guessedLetters.has(char) || !wordData) return;
 
@@ -263,6 +335,195 @@ Instrucciones críticas:
       playSound.correct();
     }
   };
+
+  const handleWinAlternativeGame = async (points: number, timeSpent: number, styleName: string) => {
+    await saveCompletedGameScore(points, timeSpent, styleName);
+    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+    setGameState('completed');
+  };
+
+  // Word arrays source
+  const activeGameWords = customWords && customWords.length > 0
+    ? customWords
+    : (isKids ? INFANTIL_WORDS : UNIVERSITARIO_WORDS);
+
+  const renderCompletedModal = () => (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="brutal-box p-8 max-w-sm w-full text-center animate-in zoom-in-95 bg-[var(--white)] border-4 border-black shadow-[8px_8px_0_0_#000]">
+        <h2 className="text-4xl font-black mb-4 uppercase text-[var(--secondary)]">
+          ¡Lección Completada!
+        </h2>
+        <p className="text-[var(--dark)] font-bold mb-6">
+          Has terminado esta actividad interactiva con éxito. ¡Sigue aprendiendo con nuevos retos!
+        </p>
+        
+        <button 
+          onClick={() => {
+            setGameState('playing');
+            setSelectedStyle('selection');
+          }}
+          className="w-full brutal-btn bg-[var(--primary)] text-white hover:brightness-110 font-black py-3 mb-3 uppercase"
+        >
+          Elegir Otro Juego
+        </button>
+        <button 
+          onClick={onBack}
+          className="w-full brutal-btn bg-white border-2 border-black text-black hover:bg-gray-100 font-bold py-2.5 uppercase"
+        >
+          Volver al Menú Principal
+        </button>
+      </div>
+    </div>
+  );
+
+  if (selectedStyle === 'selection') {
+    return (
+      <div className="flex flex-col items-center w-full max-w-5xl mx-auto p-4 space-y-8 animate-in fade-in duration-200">
+        <div className="text-center space-y-2 max-w-2xl mt-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[var(--accent)] border-2 border-black text-xs font-black uppercase tracking-wider rounded-full shadow-[2px_2px_0_0_#000]">
+            <BookOpen className="w-3.5 h-3.5" /> MODO: {mode}
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black uppercase text-[var(--dark)] tracking-tight">
+            🎮 Selecciona tu Actividad
+          </h1>
+          <p className="text-slate-600 font-bold text-sm md:text-base leading-relaxed">
+            Elige una de las tres dinámicas interactivas para practicar y dominar el vocabulario configurado en esta lección.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
+          {/* Card 1: Ahorcado */}
+          <div className="brutal-box p-6 bg-amber-50 hover:-translate-y-2 hover:translate-x-1 hover:shadow-[10px_10px_0_0_#000] transition-all flex flex-col justify-between border-4 border-black group shadow-[5px_5px_0_0_#000]">
+            <div className="space-y-4">
+              <div className="w-14 h-14 rounded-xl bg-amber-300 border-3 border-black flex items-center justify-center shadow-[3px_3px_0_0_#000] shrink-0">
+                <Gamepad2 className="w-8 h-8 text-black" />
+              </div>
+              <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 leading-none">
+                Ahorcado Clásico
+              </h2>
+              <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                Descubre los conceptos letra por letra antes de agotar los turnos. El clásico dibujo para afianzar retención de términos.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedStyle('ahorcado');
+                playSound.correct();
+              }}
+              className="mt-8 brutal-btn w-full bg-[var(--primary)] text-white font-black py-3 text-sm flex items-center justify-center gap-2"
+            >
+              ¡JUGAR AHORCADO!
+            </button>
+          </div>
+
+          {/* Card 2: Sopa de Letras */}
+          <div className="brutal-box p-6 bg-teal-50 hover:-translate-y-2 hover:translate-x-1 hover:shadow-[10px_10px_0_0_#000] transition-all flex flex-col justify-between border-4 border-black group shadow-[5px_5px_0_0_#000]">
+            <div className="space-y-4">
+              <div className="w-14 h-14 rounded-xl bg-teal-300 border-3 border-black flex items-center justify-center shadow-[3px_3px_0_0_#000] shrink-0">
+                <Search className="w-8 h-8 text-black" />
+              </div>
+              <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 leading-none">
+                Sopa de Letras
+              </h2>
+              <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                Localiza las palabras clave ocultas en una retícula interactiva de letras mezcladas. Soporta búsqueda diagonal y bidireccional.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedStyle('sopa_letras');
+                playSound.correct();
+              }}
+              className="mt-8 brutal-btn w-full bg-[var(--secondary)] text-white font-black py-3 text-sm flex items-center justify-center gap-2"
+            >
+              ¡BUSCAR PALABRAS!
+            </button>
+          </div>
+
+          {/* Card 3: Crucigrama */}
+          <div className="brutal-box p-6 bg-purple-50 hover:-translate-y-2 hover:translate-x-1 hover:shadow-[10px_10px_0_0_#000] transition-all flex flex-col justify-between border-4 border-black group shadow-[5px_5px_0_0_#000]">
+            <div className="space-y-4">
+              <div className="w-14 h-14 rounded-xl bg-purple-300 border-3 border-black flex items-center justify-center shadow-[3px_3px_0_0_#000] shrink-0">
+                <Grid className="w-8 h-8 text-black" />
+              </div>
+              <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900 leading-none">
+                Crucigrama
+              </h2>
+              <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                Interpola los términos de manera cruzada descifrando sus definiciones y pistas académicas en una plantilla interactiva.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedStyle('crucigrama');
+                playSound.correct();
+              }}
+              className="mt-8 brutal-btn w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 text-sm flex items-center justify-center gap-2"
+            >
+              ¡RESOLVER CRUCIGRAMA!
+            </button>
+          </div>
+        </div>
+
+        <button 
+          onClick={onBack}
+          className="brutal-btn bg-white hover:bg-gray-100 text-black border-2 border-black max-w-xs font-black py-2.5 px-8 flex items-center gap-2 transition-all"
+        >
+          ← Volver al Panel
+        </button>
+
+        {roomPin && (
+          <div className="w-full max-w-4xl mt-8">
+            <LiveClassStats joinedStudents={[]} gameEndTime={globalEndTime || null} roomPin={roomPin} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (selectedStyle === 'sopa_letras') {
+    return (
+      <div className="w-full animate-in fade-in duration-200">
+        <div className="max-w-6xl mx-auto px-4 pt-2">
+          <button
+            onClick={() => setSelectedStyle('selection')}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-black font-black uppercase mb-1 border-b border-transparent hover:border-black"
+          >
+            ← Volver a selección de juegos
+          </button>
+        </div>
+        <WordSearchGame 
+          words={activeGameWords} 
+          onBack={() => setSelectedStyle('selection')} 
+          onWinAll={(points, seconds) => handleWinAlternativeGame(points, seconds, "Sopa de Letras")}
+        />
+        {gameState === 'completed' && renderCompletedModal()}
+      </div>
+    );
+  }
+
+  if (selectedStyle === 'crucigrama') {
+    return (
+      <div className="w-full animate-in fade-in duration-200">
+        <div className="max-w-6xl mx-auto px-4 pt-2">
+          <button
+            onClick={() => setSelectedStyle('selection')}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-black font-black uppercase mb-1 border-b border-transparent hover:border-black"
+          >
+            ← Volver a selección de juegos
+          </button>
+        </div>
+        <CrosswordGame 
+          words={activeGameWords} 
+          onBack={() => setSelectedStyle('selection')} 
+          onWinAll={(points, seconds) => handleWinAlternativeGame(points, seconds, "Crucigrama")}
+        />
+        {gameState === 'completed' && renderCompletedModal()}
+      </div>
+    );
+  }
+
+  // --- HANGMAN GAMEPLAY VIEW ---
 
   if (loading) {
     return (
@@ -278,15 +539,23 @@ Instrucciones críticas:
   if (!wordData) return null;
 
   return (
-    <div className="flex flex-col items-center w-full max-w-6xl mx-auto p-4 space-y-8">
+    <div className="flex flex-col items-center w-full max-w-6xl mx-auto p-4 space-y-8 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex justify-between w-full items-center mb-4">
-        <button 
-          onClick={onBack}
-          className="brutal-btn bg-[var(--white)] text-[var(--dark)] flex items-center gap-2 px-6 py-2"
-        >
-          ← Volver
-        </button>
+      <div className="flex justify-between w-full items-center mb-4 flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onBack}
+            className="brutal-btn bg-[var(--white)] text-[var(--dark)] flex items-center gap-2 px-6 py-2"
+          >
+            ← Panel
+          </button>
+          <button 
+            onClick={() => setSelectedStyle('selection')}
+            className="brutal-btn bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1 px-4 py-2 text-xs border-2 border-black"
+          >
+            🎲 Cambiar de Juego
+          </button>
+        </div>
 
         {/* Timer UI */}
         <div className={cn(
@@ -297,7 +566,7 @@ Instrucciones críticas:
            {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
         </div>
 
-        <div className="mode-badge">
+        <div className="mode-badge uppercase">
           Modo: {mode}
         </div>
       </div>

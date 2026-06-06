@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged as firebaseOnAuthStateChanged } from 'firebase/auth';
 import { getFirestore, onSnapshot, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { UserProfile, Lesson, CustomWord } from './types';
+import { UserProfile, Lesson, CustomWord, UserStats } from './types';
 
 // Detect fallback mode
 export const isFallbackMode = !firebaseConfig.apiKey || firebaseConfig.apiKey.includes('remixed');
@@ -297,12 +297,15 @@ export async function saveUserScore(uid: string, name: string, points: number, w
     const userRef = doc(db, 'users', uid);
     const snap = await getDoc(userRef);
     let newScore = points;
-    let stats = {
+    let stats: UserStats = {
       gamesPlayed: 0,
       gamesWon: 0,
       totalTime: 0,
       wordsGuessed: [] as string[],
-      achievements: [] as string[]
+      achievements: [] as string[],
+      currentStreak: 0,
+      maxStreak: 0,
+      flawlessVictories: 0
     };
 
     if (snap.exists()) {
