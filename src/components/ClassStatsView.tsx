@@ -94,12 +94,32 @@ export const ClassStatsView = ({ onBack }: { onBack: () => void }) => {
           ← Volver
         </button>
         <h2 className="text-2xl font-black uppercase text-[var(--dark)] flex-1 text-center">Estadísticas de la Clase</h2>
-        <button 
-          onClick={handleReset}
-          className="brutal-btn bg-red-400 text-white flex items-center gap-2 px-4 py-2 text-sm shadow-[2px_2px_0px_rgba(27,26,25,1)] border-[3px] hover:bg-red-500"
-        >
-          Reiniciar
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => {
+              if (!stats) return;
+              const blob = new Blob([JSON.stringify(stats, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `calificaciones_clase_${new Date().toISOString().split('T')[0]}.json`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }}
+            className="brutal-btn bg-[var(--primary)] text-white flex items-center gap-2 px-4 py-2 text-sm shadow-[2px_2px_0px_rgba(27,26,25,1)] border-[3px] hover:bg-blue-600"
+            title="Descargar calificaciones en JSON"
+          >
+            Descargar JSON
+          </button>
+          <button 
+            onClick={handleReset}
+            className="brutal-btn bg-red-400 text-white flex items-center gap-2 px-4 py-2 text-sm shadow-[2px_2px_0px_rgba(27,26,25,1)] border-[3px] hover:bg-red-500"
+          >
+            Reiniciar
+          </button>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
