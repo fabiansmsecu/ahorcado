@@ -9,7 +9,7 @@ import { UserProfileView } from './components/UserProfileView';
 import { LiveClassStats } from './components/LiveClassStats';
 import { auth, loginWithGoogle, logout, onAuthStateChanged, isFallbackMode, loginWithNickname, saveLesson } from './firebase';
 import { cn } from './lib/utils';
-import { Trophy, LogIn, LogOut, Play, GraduationCap, BookOpen, AlertCircle, Sparkles, User, Settings, BarChart, UserCircle, Library } from 'lucide-react';
+import { Trophy, LogIn, LogOut, Play, GraduationCap, BookOpen, AlertCircle, Sparkles, User, Settings, BarChart, UserCircle, Library, Gamepad2, Search, Grid } from 'lucide-react';
 
 type Screen = 'menu' | 'game' | 'leaderboard' | 'setup' | 'stats' | 'profile' | 'saved_lessons';
 type AppRole = 'student' | 'teacher' | null;
@@ -397,7 +397,7 @@ export default function App() {
               <div className="absolute top-0 right-0 p-4 opacity-20"><Settings className="w-24 h-24 rotate-12" /></div>
               <h2 className="text-2xl font-black uppercase text-[var(--dark)] relative z-10">Panel del Profesor</h2>
               <div className="font-bold my-4 text-lg bg-white/50 inline-block px-6 py-2 rounded-full border-2 border-[var(--dark)] relative z-10">
-                Estado de la clase: {globalState.isActive ? <span className="text-green-700 font-black">Activo (MODO: {globalState.mode.toUpperCase()})</span> : <span className="text-red-600 font-black">Inactivo (Sala de espera)</span>}
+                Estado de la clase: {globalState.isActive ? <span className="text-green-700 font-black">Activo (MODO: {globalState.mode?.toUpperCase()})</span> : <span className="text-red-600 font-black">Inactivo (Sala de espera)</span>}
               </div>
 
               {globalState.isActive && (

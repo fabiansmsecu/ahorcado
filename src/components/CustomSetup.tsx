@@ -317,12 +317,6 @@ ${text}`;
               >
                 Difícil
               </button>
-              <button 
-                className={cn("w-full brutal-btn py-2 text-sm", mode === 'superdificil' ? "bg-[var(--dark)] text-white" : "bg-white text-gray-500")}
-                onClick={() => setMode('superdificil')}
-              >
-                Super Difícil
-              </button>
             </div>
           </div>
 
