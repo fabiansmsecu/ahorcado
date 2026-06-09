@@ -22,11 +22,12 @@ interface GameProps {
   customWords?: {word: string, hint: string}[];
   globalEndTime?: number | null;
   roomPin?: string;
+  forcedGameStyle?: 'ahorcado' | 'sopa_letras' | 'crucigrama';
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
 
-export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEndTime, roomPin }) => {
+export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEndTime, roomPin, forcedGameStyle }) => {
   const [wordData, setWordData] = useState<WordData | null>(null);
   const [guessedLetters, setGuessedLetters] = useState<Set<string>>(new Set());
   const [mistakes, setMistakes] = useState(0);
@@ -64,7 +65,16 @@ export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEnd
     { word: "ANALOGIA", hint: "Relación o correspondencia lógica de semejanza entre cosas distintas." }
   ];
 
-  const [selectedStyle, setSelectedStyle] = useState<'selection' | 'ahorcado' | 'crucigrama' | 'sopa_letras'>('selection');
+  const [selectedStyle, setSelectedStyle] = useState<'selection' | 'ahorcado' | 'crucigrama' | 'sopa_letras'>(forcedGameStyle || 'selection');
+  
+  useEffect(() => {
+    if (forcedGameStyle) {
+      setSelectedStyle(forcedGameStyle);
+    } else {
+      setSelectedStyle('selection');
+    }
+  }, [forcedGameStyle]);
+
   const [startTime, setStartTime] = useState<number>(0);
 
   const fetchWord = async () => {
@@ -358,15 +368,6 @@ Instrucciones críticas:
         </p>
         
         <button 
-          onClick={() => {
-            setGameState('playing');
-            setSelectedStyle('selection');
-          }}
-          className="w-full brutal-btn bg-[var(--primary)] text-white hover:brightness-110 font-black py-3 mb-3 uppercase"
-        >
-          Elegir Otro Juego
-        </button>
-        <button 
           onClick={onBack}
           className="w-full brutal-btn bg-white border-2 border-black text-black hover:bg-gray-100 font-bold py-2.5 uppercase"
         >
@@ -375,6 +376,8 @@ Instrucciones críticas:
       </div>
     </div>
   );
+
+
 
   if (selectedStyle === 'selection') {
     return (
@@ -410,7 +413,7 @@ Instrucciones críticas:
                 setSelectedStyle('ahorcado');
                 playSound.correct();
               }}
-              className="mt-8 brutal-btn w-full bg-[var(--primary)] text-white font-black py-3 text-sm flex items-center justify-center gap-2"
+              className="mt-8 brutal-btn w-full bg-[var(--primary)] text-white font-black py-3 text-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               ¡JUGAR AHORCADO!
             </button>
@@ -434,7 +437,7 @@ Instrucciones críticas:
                 setSelectedStyle('sopa_letras');
                 playSound.correct();
               }}
-              className="mt-8 brutal-btn w-full bg-[var(--secondary)] text-white font-black py-3 text-sm flex items-center justify-center gap-2"
+              className="mt-8 brutal-btn w-full bg-[var(--secondary)] text-white font-black py-3 text-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               ¡BUSCAR PALABRAS!
             </button>
@@ -458,7 +461,7 @@ Instrucciones críticas:
                 setSelectedStyle('crucigrama');
                 playSound.correct();
               }}
-              className="mt-8 brutal-btn w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 text-sm flex items-center justify-center gap-2"
+              className="mt-8 brutal-btn w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 text-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               ¡RESOLVER CRUCIGRAMA!
             </button>
@@ -467,16 +470,10 @@ Instrucciones críticas:
 
         <button 
           onClick={onBack}
-          className="brutal-btn bg-white hover:bg-gray-100 text-black border-2 border-black max-w-xs font-black py-2.5 px-8 flex items-center gap-2 transition-all"
+          className="brutal-btn bg-white hover:bg-gray-100 text-black border-2 border-black max-w-xs font-black py-2.5 px-8 flex items-center gap-2 transition-all cursor-pointer"
         >
-          ← Volver al Panel
+          ← Volver al Menú
         </button>
-
-        {roomPin && (
-          <div className="w-full max-w-4xl mt-8">
-            <LiveClassStats joinedStudents={[]} gameEndTime={globalEndTime || null} roomPin={roomPin} />
-          </div>
-        )}
       </div>
     );
   }
@@ -486,15 +483,15 @@ Instrucciones críticas:
       <div className="w-full animate-in fade-in duration-200">
         <div className="max-w-6xl mx-auto px-4 pt-2">
           <button
-            onClick={() => setSelectedStyle('selection')}
+            onClick={onBack}
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-black font-black uppercase mb-1 border-b border-transparent hover:border-black"
           >
-            ← Volver a selección de juegos
+            ← Volver al Panel
           </button>
         </div>
         <WordSearchGame 
           words={activeGameWords} 
-          onBack={() => setSelectedStyle('selection')} 
+          onBack={onBack} 
           onWinAll={(points, seconds) => handleWinAlternativeGame(points, seconds, "Sopa de Letras")}
         />
         {gameState === 'completed' && renderCompletedModal()}
@@ -507,15 +504,15 @@ Instrucciones críticas:
       <div className="w-full animate-in fade-in duration-200">
         <div className="max-w-6xl mx-auto px-4 pt-2">
           <button
-            onClick={() => setSelectedStyle('selection')}
+            onClick={onBack}
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-black font-black uppercase mb-1 border-b border-transparent hover:border-black"
           >
-            ← Volver a selección de juegos
+            ← Volver al Panel
           </button>
         </div>
         <CrosswordGame 
           words={activeGameWords} 
-          onBack={() => setSelectedStyle('selection')} 
+          onBack={onBack} 
           onWinAll={(points, seconds) => handleWinAlternativeGame(points, seconds, "Crucigrama")}
         />
         {gameState === 'completed' && renderCompletedModal()}
@@ -548,12 +545,6 @@ Instrucciones críticas:
             className="brutal-btn bg-[var(--white)] text-[var(--dark)] flex items-center gap-2 px-6 py-2"
           >
             ← Panel
-          </button>
-          <button 
-            onClick={() => setSelectedStyle('selection')}
-            className="brutal-btn bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1 px-4 py-2 text-xs border-2 border-black"
-          >
-            🎲 Cambiar de Juego
           </button>
         </div>
 

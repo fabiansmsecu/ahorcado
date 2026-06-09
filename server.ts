@@ -40,13 +40,13 @@ app.get("/api/game-state", (req, res) => {
     res.json(activeRooms[roomPin]);
   } else {
     // Si no hay sala, devolvemos un estado inactivo genérico
-    res.json({ isActive: false, isPlaying: false, roomPin: '', mode: 'infantil', customWords: null, sessionId: '', joinedStudents: [], gameEndTime: null });
+    res.json({ isActive: false, isPlaying: false, roomPin: '', mode: 'infantil', customWords: null, sessionId: '', joinedStudents: [], gameEndTime: null, selectedGameStyle: 'ahorcado' });
   }
 });
 
 // Update the game state API
 app.post("/api/game-state", (req, res) => {
-  const { pin, mode, customWords, isActive, isPlaying, roomPin, forceRestart, gameEndTime, attemptsLimit } = req.body;
+  const { pin, mode, customWords, isActive, isPlaying, roomPin, forceRestart, gameEndTime, attemptsLimit, selectedGameStyle } = req.body;
   if (pin !== TEACHER_PIN) {
     return res.status(403).json({ error: "PIN incorrecto" });
   }
@@ -68,7 +68,8 @@ app.post("/api/game-state", (req, res) => {
       sessionId: Date.now().toString(),
       joinedStudents: [],
       gameEndTime: gameEndTime || null,
-      attemptsLimit: attemptsLimit || 0 // 0 means unlimited
+      attemptsLimit: attemptsLimit || 0, // 0 means unlimited
+      selectedGameStyle: selectedGameStyle || 'ahorcado'
     };
   } else {
     // Update existing room
@@ -83,6 +84,7 @@ app.post("/api/game-state", (req, res) => {
     currentRoom.joinedStudents = forceRestart ? [] : currentRoom.joinedStudents;
     currentRoom.gameEndTime = gameEndTime !== undefined ? gameEndTime : currentRoom.gameEndTime;
     if (attemptsLimit !== undefined) currentRoom.attemptsLimit = attemptsLimit;
+    if (selectedGameStyle !== undefined) currentRoom.selectedGameStyle = selectedGameStyle;
   }
   
   res.json({ success: true, state: activeRooms[roomPin] });
@@ -100,6 +102,27 @@ app.post("/api/join-lobby", (req, res) => {
   } else {
      res.status(400).json({ error: "PIN de sala inválido o sala cerrada" });
   }
+});
+
+app.post("/api/kick-student", (req, res) => {
+  const { pin, roomPin, studentName } = req.body;
+  if (pin !== TEACHER_PIN) {
+    return res.status(403).json({ error: "PIN incorrecto" });
+  }
+  
+  const room = activeRooms[roomPin];
+  if (room) {
+    room.joinedStudents = room.joinedStudents.filter(name => name !== studentName);
+    
+    // Also remove from stats so they don't show up in the teacher's leaderboard 
+    // unless they rejoin and submit a score
+    const stats = roomStats[roomPin];
+    if (stats && stats.players[studentName]) {
+      delete stats.players[studentName];
+    }
+  }
+  
+  res.json({ success: true, state: room });
 });
 
 // Setup room stats factory

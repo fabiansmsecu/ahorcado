@@ -40,6 +40,7 @@ export default function App() {
 
   // Time Limit config
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(3);
+  const [teacherGameStyle, setTeacherGameStyle] = useState<'ahorcado'|'sopa_letras'|'crucigrama'>('ahorcado');
 
   // PIN Configuration for Teacher
   const [pinSemester, setPinSemester] = useState('A2026');
@@ -178,16 +179,35 @@ export default function App() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold text-gray-600">Cargando partida...</div>;
   }
 
-  const launchClassGame = async () => {
+  const launchClassGame = async (styleToLaunch?: string) => {
     const pin = localStorage.getItem('teacher_pin') || '';
     let endTime = Date.now() + timeLimitMinutes * 60 * 1000;
     try {
       await fetch('/api/game-state', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ pin, roomPin: globalState.roomPin, isPlaying: true, gameEndTime: endTime })
+        body: JSON.stringify({ pin, roomPin: globalState.roomPin, isPlaying: true, gameEndTime: endTime, selectedGameStyle: styleToLaunch || teacherGameStyle })
       });
       showToast("¡Juego iniciado en la clase!");
+    } catch (e) {}
+  };
+
+  const kickStudent = async (studentName: string) => {
+    const pin = localStorage.getItem('teacher_pin') || '';
+    try {
+      const res = await fetch('/api/kick-student', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ pin, roomPin: globalState.roomPin, studentName })
+      });
+      if (res.ok) {
+         showToast(`Has expulsado a ${studentName} de la sala.`);
+         // Optimistically update UI
+         setGlobalState(prev => ({
+           ...prev,
+           joinedStudents: (prev.joinedStudents || []).filter(name => name !== studentName)
+         }));
+      }
     } catch (e) {}
   };
 
@@ -390,11 +410,32 @@ export default function App() {
               {globalState.isActive && !globalState.isPlaying && (
                 <div className="mt-4 bg-white p-6 border-4 border-[var(--dark)] inline-block relative z-10 w-full max-w-sm mx-auto shadow-[4px_4px_0_0_var(--dark)]">
                   <h3 className="text-xl font-bold uppercase mb-2">Sala de Espera</h3>
-                  <p className="font-bold text-gray-500 mb-6 bg-gray-100 py-3 border-2 border-dashed border-gray-300">
-                    {globalState.joinedStudents?.length || 0} estudiantes conectados
-                  </p>
                   
-                  <div className="mb-6 text-left">
+                  <div className="mb-4 text-left border-2 border-black p-2 bg-gray-50 h-32 overflow-y-auto w-full">
+                    <p className="font-bold text-gray-500 mb-2 border-b-2 border-black pb-1 text-sm">
+                      {globalState.joinedStudents?.length || 0} estudiantes conectados
+                    </p>
+                    {globalState.joinedStudents && globalState.joinedStudents.length > 0 ? (
+                      <ul className="space-y-1">
+                        {globalState.joinedStudents.map((s: string) => (
+                          <li key={s} className="flex justify-between items-center bg-white border border-gray-200 p-1 text-sm">
+                            <span className="font-bold truncate" title={s}>{s}</span>
+                            <button 
+                               onClick={() => kickStudent(s)} 
+                               className="text-red-500 hover:text-red-700 font-bold px-2 py-0.5 border border-red-200 bg-red-50"
+                               title="Expulsar"
+                            >X</button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full opacity-50">
+                         <span className="text-xs font-bold">Aún no hay estudiantes</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mb-6 text-left w-full">
                     <label className="block font-bold text-[var(--dark)] mb-2 uppercase text-sm">Tiempo Límite (Minutos):</label>
                     <div className="flex gap-2">
                       <button onClick={() => setTimeLimitMinutes(prev => Math.max(1, prev - 1))} className="brutal-btn bg-gray-200 px-4 py-2 font-black text-xl hover:bg-gray-300">-</button>
@@ -403,7 +444,41 @@ export default function App() {
                     </div>
                   </div>
 
-                  <button onClick={launchClassGame} className="w-full brutal-btn bg-green-500 text-white py-4 text-xl shadow-[3px_3px_0_0_var(--dark)] uppercase hover:bg-green-600">Empezar Clase</button>
+                  <div className="w-full text-left mb-4">
+                    <h3 className="block font-black text-[var(--dark)] mb-3 text-lg uppercase text-center bg-yellow-200 border-2 border-black py-2 rounded-lg">¿Qué van a jugar?</h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      <button 
+                        onClick={() => {
+                          setTeacherGameStyle('ahorcado');
+                          setTimeout(() => launchClassGame('ahorcado'), 0);
+                        }}
+                        className="brutal-btn w-full bg-[var(--primary)] text-white font-black py-3 text-sm flex items-center justify-center gap-2 hover:bg-orange-600"
+                      >
+                        <Gamepad2 className="w-5 h-5" /> ¡INICIAR AHORCADO!
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setTeacherGameStyle('sopa_letras');
+                          setTimeout(() => launchClassGame('sopa_letras'), 0);
+                        }}
+                        className="brutal-btn w-full bg-[var(--secondary)] text-white font-black py-3 text-sm flex items-center justify-center gap-2 hover:bg-green-600"
+                      >
+                        <Search className="w-5 h-5" /> ¡INICIAR SOPA DE LETRAS!
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setTeacherGameStyle('crucigrama');
+                          setTimeout(() => launchClassGame('crucigrama'), 0);
+                        }}
+                        className="brutal-btn w-full bg-indigo-600 text-white font-black py-3 text-sm flex items-center justify-center gap-2 hover:bg-indigo-700"
+                      >
+                        <Grid className="w-5 h-5" /> ¡INICIAR CRUCIGRAMA!
+                      </button>
+                    </div>
+                  </div>
+
                   <button 
                      onClick={async () => {
                        await fetch('/api/game-state', {
@@ -414,7 +489,7 @@ export default function App() {
                        localStorage.setItem('teacher_last_room', globalState.roomPin);
                        localStorage.removeItem('teacher_active_room');
                      }}
-                     className="mt-4 w-full brutal-btn bg-[#ff4d4d] text-white py-3 font-bold uppercase hover:bg-red-600"
+                     className="mt-2 w-full brutal-btn bg-[#ff4d4d] text-white py-3 font-bold uppercase hover:bg-red-600"
                   >Cerrar Sala</button>
                 </div>
               )}
@@ -630,6 +705,7 @@ export default function App() {
             customWords={customWords} 
             globalEndTime={globalState.gameEndTime}
             roomPin={globalState.roomPin || localStorage.getItem('last_room_pin') || undefined}
+            forcedGameStyle={globalState.selectedGameStyle}
             onBack={() => {
              // For student, returning from game goes back to wait room.
              setCurScreen('menu');
