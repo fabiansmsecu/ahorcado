@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '../lib/utils';
-import { BookOpen, FileText, Loader2, Save, AlertTriangle, RefreshCw, Play, CheckCircle2, ChevronRight, HelpCircle } from 'lucide-react';
+import { BookOpen, FileText, Loader2, Save, AlertTriangle, RefreshCw, Play, CheckCircle2, ChevronRight, HelpCircle, Trash2 } from 'lucide-react';
 import { saveLesson } from '../firebase';
 
 interface ValidationResult {
@@ -124,6 +124,11 @@ export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => 
   const handleRegenerateFromModal = () => {
     setShowValidationModal(false);
     handleGenerate();
+  };
+
+  const handleRemoveWord = (index: number) => {
+    setPendingWords(prev => prev.filter((_, i) => i !== index));
+    setValidationResults(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleBypassValidation = async () => {
@@ -421,15 +426,24 @@ ${text}`;
                   )}>
                     <div className="flex justify-between items-center">
                       <span className="font-black tracking-wide font-mono text-base text-[var(--dark)]">{v.word}</span>
-                      {hasWarnings ? (
-                        <span className="px-2 py-0.5 bg-red-100 text-red-700 border-2 border-red-500 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-                          ⚠️ Advertencia
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 border-2 border-green-400 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-                          ✓ Óptima
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {hasWarnings ? (
+                          <span className="px-2 py-0.5 bg-red-100 text-red-700 border-2 border-red-500 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                            ⚠️ Advertencia
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 border-2 border-green-400 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                            ✓ Óptima
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleRemoveWord(i)}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          title="Eliminar pregunta"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="text-xs font-bold text-gray-500 leading-snug">Pista: {v.hint}</div>
                     {hasWarnings && (
