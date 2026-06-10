@@ -94,11 +94,11 @@ export function LiveClassStats({ joinedStudents, gameEndTime, roomPin }: { joine
                      </span>
                    ) : studentResult.won ? (
                      <span className="flex items-center gap-2 text-green-600">
-                        <CheckCircle className="w-5 h-5" /> ¡Salvado! (+{studentResult.score})
+                        <CheckCircle className="w-5 h-5" /> ¡Bien! ({studentResult.score > 0 ? `+${studentResult.score}` : studentResult.score})
                      </span>
                    ) : (
                      <span className="flex items-center gap-2 text-red-600">
-                        <XCircle className="w-5 h-5" /> Ahorcado
+                        <XCircle className="w-5 h-5" /> Error {studentResult.score < 0 ? `(${studentResult.score})` : ''}
                      </span>
                    )}
                  </div>

@@ -8,6 +8,7 @@ interface CrosswordGameProps {
   words: { word: string; hint: string }[];
   onBack: () => void;
   onWinAll: (points: number, timeSpent: number) => void;
+  onPartialScore?: (points: number, word: string, won: boolean) => void;
 }
 
 interface PlacedWord {
@@ -26,7 +27,7 @@ interface GridCell {
   words: PlacedWord[]; // words that cross this cell
 }
 
-export const CrosswordGame: React.FC<CrosswordGameProps> = ({ words, onBack, onWinAll }) => {
+export const CrosswordGame: React.FC<CrosswordGameProps> = ({ words, onBack, onWinAll, onPartialScore }) => {
   const [gridSize, setGridSize] = useState(13);
   const [grid, setGrid] = useState<(GridCell | null)[][]>([]);
   const [placedWords, setPlacedWords] = useState<PlacedWord[]>([]);
@@ -376,8 +377,14 @@ export const CrosswordGame: React.FC<CrosswordGameProps> = ({ words, onBack, onW
       setTimeout(() => {
         onWinAll(20, timeSpent);
       }, 1000);
+      if (onPartialScore) {
+        onPartialScore(20, "Crucigrama", true);
+      }
     } else {
       playSound.wrong();
+      if (onPartialScore) {
+        onPartialScore(-5, "Revisión", false);
+      }
     }
   };
 

@@ -8,6 +8,7 @@ interface WordSearchGameProps {
   words: { word: string; hint: string }[];
   onBack: () => void;
   onWinAll: (points: number, timeSpent: number) => void;
+  onPartialScore?: (points: number, word: string, won: boolean) => void;
 }
 
 const DIRECTIONS = [
@@ -23,7 +24,7 @@ const DIRECTIONS = [
 
 const ALPHABET = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ";
 
-export const WordSearchGame: React.FC<WordSearchGameProps> = ({ words, onBack, onWinAll }) => {
+export const WordSearchGame: React.FC<WordSearchGameProps> = ({ words, onBack, onWinAll, onPartialScore }) => {
   const [gridSize, setGridSize] = useState(12);
   const [grid, setGrid] = useState<string[][]>([]);
   const [cleanWordsList, setCleanWordsList] = useState<{ original: string; clean: string; hint: string; found: boolean; color: string }[]>([]);
@@ -207,6 +208,10 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({ words, onBack, o
           playSound.win();
           confetti({ particleCount: 30, spread: 40 });
           
+          if (onPartialScore) {
+            onPartialScore(10, match.clean, true);
+          }
+          
           // Mark found
           const updatedList = cleanWordsList.map(wObj => 
             wObj.clean === match.clean ? { ...wObj, found: true } : wObj
@@ -236,6 +241,9 @@ export const WordSearchGame: React.FC<WordSearchGameProps> = ({ words, onBack, o
           }
         } else {
           playSound.wrong();
+          if (onPartialScore) {
+            onPartialScore(-2, text, false);
+          }
         }
       }
       // Reset selection

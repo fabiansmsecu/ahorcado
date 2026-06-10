@@ -332,6 +332,42 @@ Instrucciones críticas:
     }
   };
 
+  const handlePartialScore = async (points: number, word: string, won: boolean) => {
+    const user = getCurrentUser();
+    let uid = localStorage.getItem('guest_uid') || "local-guest-" + Math.floor(Math.random()*10000);
+    localStorage.setItem('guest_uid', uid);
+    let name = "Jugador Anónimo";
+
+    if (user) {
+      uid = user.uid;
+      name = user.displayName || user.name || name;
+    } else {
+      const localName = localStorage.getItem('local_user') || localStorage.getItem('student_name');
+      if (localName) {
+         try {
+           const parsed = JSON.parse(localName);
+           name = parsed.displayName || parsed.name || localName;
+         } catch {
+           name = localName;
+         }
+      }
+    }
+
+    try {
+      await saveUserScore(uid, name, points, won, word, 0, won ? 0 : 1);
+    } catch (e) {}
+    
+    try {
+      await fetch('/api/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          uid, name, won, word, score: points, roomPin: localStorage.getItem('last_room_pin')
+        })
+      });
+    } catch {}
+  };
+
   const handleGuess = (char: string) => {
     if (gameState !== 'playing' || guessedLetters.has(char) || !wordData) return;
 
@@ -493,6 +529,7 @@ Instrucciones críticas:
           words={activeGameWords} 
           onBack={onBack} 
           onWinAll={(points, seconds) => handleWinAlternativeGame(points, seconds, "Sopa de Letras")}
+          onPartialScore={handlePartialScore}
         />
         {gameState === 'completed' && renderCompletedModal()}
       </div>
@@ -514,6 +551,7 @@ Instrucciones críticas:
           words={activeGameWords} 
           onBack={onBack} 
           onWinAll={(points, seconds) => handleWinAlternativeGame(points, seconds, "Crucigrama")}
+          onPartialScore={handlePartialScore}
         />
         {gameState === 'completed' && renderCompletedModal()}
       </div>
