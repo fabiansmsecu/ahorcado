@@ -28,12 +28,16 @@ const validateGeneratedWords = (
       .toUpperCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^A-Z]/g, "");
+      .replace(/[^A-Z ]/g, "")
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const noSpacesWord = normalizedWord.replace(/ /g, '');
 
     // 1. Context validation (only relevant if source was unstructured text)
     if (isTextType && normalizedWord.length > 2) {
       // Check if word is physically in the normalized source text
-      const isWordInText = normalizedSource.includes(normalizedWord);
+      const isWordInText = normalizedSource.includes(normalizedWord) || normalizedSource.replace(/\s/g, '').includes(noSpacesWord);
       
       if (!isWordInText) {
         warnings.push("La palabra no fue encontrada directamente en tu texto de estudio. Podría estar fuera de contexto o inventada.");
@@ -50,31 +54,31 @@ const validateGeneratedWords = (
       if (len < 4) {
         warnings.push("La palabra es excesivamente corta incluso para nivel fácil (< 4 letras).");
       }
-      if (len > 10) {
-        warnings.push(`La palabra tiene ${len} letras, lo cual supera el nivel recomendado para niños/principiantes (> 10 letras).`);
+      if (len > 15) {
+        warnings.push(`La palabra tiene ${len} letras, lo cual supera el nivel recomendado para niños/principiantes (> 15 letras).`);
       }
     } else if (currentMode === 'dificil') {
       if (len < 5) {
         warnings.push("La palabra es muy corta para el nivel medio/difícil (< 5 letras).");
       }
-      if (len > 15) {
+      if (len > 25) {
         warnings.push(`La palabra tiene ${len} letras, lo cual es muy extenso para un nivel medio y entorpece el cálculo.`);
       }
     } else if (currentMode === 'superdificil') {
       if (len < 6) {
         warnings.push("La palabra es inusualmente corta para un nivel de alta maestría (< 6 letras).");
       }
-      if (len > 18) {
-        warnings.push(`La palabra es excesivamente larga para jugarse cómodo con una pista intelectual compleja (> 18 letras).`);
+      if (len > 30) {
+        warnings.push(`La palabra es excesivamente larga para jugarse cómodo con una pista intelectual compleja (> 30 letras).`);
       }
     }
 
     // 3. Gibberish/hallucination checks
-    if (/(.)\1\1/.test(normalizedWord)) {
-      const matchWord = normalizedWord.match(/(.)\1\1/)?.[0] || "";
+    if (/(.)\1\1/.test(noSpacesWord)) {
+      const matchWord = noSpacesWord.match(/(.)\1\1/)?.[0] || "";
       warnings.push(`Contiene repeticiones inusuales de la misma letra en secuencia (p.ej.: '${matchWord}').`);
     }
-    const consonantMatches = normalizedWord.match(/[^AEIOU]{5,}/);
+    const consonantMatches = noSpacesWord.match(/[^AEIOU]{5,}/);
     if (consonantMatches) {
       warnings.push(`Contiene una secuencia muy poco común de consonantes consecutivas ('${consonantMatches[0]}').`);
     }
@@ -158,15 +162,15 @@ export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => 
         difficultyDesc = 'Nivel Avanzado/Super Difícil (selecciona conceptos medulares, principales e indispensables del tema de estudio. Está TERMINANTEMENTE PROHIBIDO elegir términos sumamente oscuros, raros, marginales, rebuscados o inventados; deben ser términos clave principales como "FRAUDE", "EVIDENCIA", "CONTROL", "RIESGO". La dificultad alta se logra haciendo pistas o definiciones desafiantes, muy analíticas, conceptuales y que requieran síntesis o pensamiento crítico, en lugar de pistas directas u obvias)';
       }
       
-      const promptInstructions = `A partir del siguiente texto, extrae HASTA un MÁXIMO de ${wordCount} palabras clave para un juego del ahorcado.
+      const promptInstructions = `A partir del siguiente texto, extrae HASTA un MÁXIMO de ${wordCount} términos clave para un juego.
 Audiencia: ${difficultyDesc}.
-Retorna exactamente UNA palabra por línea, separada de su pista con un pipe (|).
+Retorna exactamente UN TÉRMINO por línea, separado de su pista con un pipe (|).
 Ejemplo:
-PALABRA|Pista muy corta aquí.
-OTRAPALABRA|Otra pista corta aquí.
+TERMINO|Pista muy corta aquí.
+OTRO TERMINO CLAVE|Otra pista corta aquí.
 
 Instrucciones críticas de formato para cada línea:
-1. La palabra ANTES del pipe debe ser UNA SOLA PALABRA, en MAYÚSCULAS, SIN TILDES, SIN ESPACIOS, SIN SÍMBOLOS.
+1. El término ANTES del pipe pueden ser MÚLTIPLES PALABRAS (ej: BALANCE GENERAL), en MAYÚSCULAS, SIN TILDES, SIN SÍMBOLOS. Solo usa espacios normales, sin puntuación.
 2. La palabra elegida DEBE ser un concepto real, común, principal y central del texto fuente. Está PROHIBIDO extraer palabras rebuscadas, raras, inventadas o marginales.
 3. La pista DESPUÉS del pipe debe ser MUY CORTA (máximo 6 palabras).
 4. No incluyas nada más en tu respuesta. Sin markdown, sin introducciones ni conclusiones. Procesalo velozmente.
@@ -196,7 +200,7 @@ ${text}`;
       if (data.words && Array.isArray(data.words) && data.words.length > 0) {
         // Enforce formatting
         const cleanedWords = data.words.map((w: any) => ({
-          word: w.word.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z]/g, ""),
+          word: w.word.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z ]/g, "").replace(/\s+/g, ' ').trim(),
           hint: w.hint
         })).filter((w: any) => w.word.length > 0);
         
