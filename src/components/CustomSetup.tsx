@@ -97,7 +97,7 @@ const validateGeneratedWords = (
 };
 
 interface CustomSetupProps {
-  onStart: (words: { word: string; hint: string }[], mode: string, maxAttempts?: number) => void;
+  onStart: (words: { word: string; hint: string }[], mode: string, maxAttempts?: number, wordsPerStudent?: number) => void;
   onBack: () => void;
 }
 
@@ -106,6 +106,7 @@ export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => 
   const [inputType, setInputType] = useState<'text' | 'words'>('text');
   const [mode, setMode] = useState<string>('dificil');
   const [wordCount, setWordCount] = useState<number>(10);
+  const [wordsPerStudent, setWordsPerStudent] = useState<number>(0); // 0 means all words
   const [maxAttempts, setMaxAttempts] = useState<number>(1);
   
   // Custom lesson metadata
@@ -130,7 +131,7 @@ export const CustomSetup: React.FC<CustomSetupProps> = ({ onStart, onBack }) => 
     try {
       await saveLesson(subject.trim(), lessonTitle.trim(), pendingWords, mode);
       setShowValidationModal(false);
-      onStart(pendingWords, mode, maxAttempts);
+      onStart(pendingWords, mode, maxAttempts, wordsPerStudent > 0 ? wordsPerStudent : undefined);
     } catch (err: any) {
       console.error("Error saving lesson from bypass:", err);
       setError(`Ocurrió un error al guardar la lección: ${err.message || "Error desconocido"}`);
@@ -217,7 +218,7 @@ ${text}`;
         } else {
           // Save the generated lesson in Firebase
           await saveLesson(subject.trim(), lessonTitle.trim(), cleanedWords, mode);
-          onStart(cleanedWords, mode, maxAttempts);
+          onStart(cleanedWords, mode, maxAttempts, wordsPerStudent > 0 ? wordsPerStudent : undefined);
         }
       } else {
         throw new Error("El formato de respuesta de la IA fue incorrecto o está vacío.");
@@ -324,18 +325,36 @@ ${text}`;
             </div>
           </div>
 
-          <div className="space-y-4">
-            <label className="font-black text-[var(--dark)] text-lg uppercase">4. Cantidad</label>
-            <select 
-              className="w-full p-3 brutal-box bg-white font-bold outline-none cursor-pointer"
-              value={wordCount}
-              onChange={(e) => setWordCount(Number(e.target.value))}
-            >
-              <option value={5}>5 Palabras</option>
-              <option value={10}>10 Palabras</option>
-              <option value={15}>15 Palabras</option>
-              <option value={20}>20 Palabras</option>
-            </select>
+          <div className="space-y-4 md:space-y-0 md:flex md:gap-4">
+            <div className="flex-1">
+              <label className="font-black text-[var(--dark)] text-lg uppercase">4. Preguntas a Generar</label>
+              <select 
+                className="w-full p-3 brutal-box bg-white font-bold outline-none cursor-pointer"
+                value={wordCount}
+                onChange={(e) => setWordCount(Number(e.target.value))}
+              >
+                <option value={5}>5 Palabras</option>
+                <option value={10}>10 Palabras</option>
+                <option value={15}>15 Palabras</option>
+                <option value={20}>20 Palabras</option>
+                <option value={30}>30 Palabras</option>
+              </select>
+            </div>
+            
+            <div className="flex-1">
+              <label className="font-black text-[var(--dark)] text-lg uppercase">Palabras por Estudiante</label>
+              <select 
+                className="w-full p-3 brutal-box bg-white font-bold outline-none cursor-pointer"
+                value={wordsPerStudent}
+                onChange={(e) => setWordsPerStudent(Number(e.target.value))}
+              >
+                <option value={0}>Todas las palabras (Generadas)</option>
+                <option value={5}>5 Palabras al azar</option>
+                <option value={10}>10 Palabras al azar</option>
+                <option value={15}>15 Palabras al azar</option>
+                <option value={20}>20 Palabras al azar</option>
+              </select>
+            </div>
           </div>
 
           <div className="space-y-4">

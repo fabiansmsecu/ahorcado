@@ -46,7 +46,7 @@ app.get("/api/game-state", (req, res) => {
 
 // Update the game state API
 app.post("/api/game-state", (req, res) => {
-  const { pin, mode, customWords, isActive, isPlaying, roomPin, forceRestart, gameEndTime, attemptsLimit, selectedGameStyle } = req.body;
+  const { pin, mode, customWords, isActive, isPlaying, roomPin, forceRestart, gameEndTime, attemptsLimit, selectedGameStyle, wordsPerStudent } = req.body;
   if (pin !== TEACHER_PIN) {
     return res.status(403).json({ error: "PIN incorrecto" });
   }
@@ -69,7 +69,8 @@ app.post("/api/game-state", (req, res) => {
       joinedStudents: [],
       gameEndTime: gameEndTime || null,
       attemptsLimit: attemptsLimit || 0, // 0 means unlimited
-      selectedGameStyle: selectedGameStyle || 'ahorcado'
+      selectedGameStyle: selectedGameStyle || 'ahorcado',
+      wordsPerStudent: wordsPerStudent || null
     };
   } else {
     // Update existing room
@@ -85,6 +86,7 @@ app.post("/api/game-state", (req, res) => {
     currentRoom.gameEndTime = gameEndTime !== undefined ? gameEndTime : currentRoom.gameEndTime;
     if (attemptsLimit !== undefined) currentRoom.attemptsLimit = attemptsLimit;
     if (selectedGameStyle !== undefined) currentRoom.selectedGameStyle = selectedGameStyle;
+    if (wordsPerStudent !== undefined) currentRoom.wordsPerStudent = wordsPerStudent;
   }
   
   res.json({ success: true, state: activeRooms[roomPin] });

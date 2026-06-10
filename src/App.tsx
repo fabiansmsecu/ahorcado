@@ -138,7 +138,7 @@ export default function App() {
     setCurScreen('game');
   };
 
-  const publishGame = async (m: GameMode, words?: {word: string, hint: string}[], attemptsLimit?: number) => {
+  const publishGame = async (m: GameMode, words?: {word: string, hint: string}[], attemptsLimit?: number, wordsPerStudent?: number) => {
     const pin = localStorage.getItem('teacher_pin') || '';
     const roomPinCode = buildRoomPin();
     const defaultTime = words ? words.length * 2 : (m === 'infantil' ? 10 : 15);
@@ -156,7 +156,8 @@ export default function App() {
           roomPin: roomPinCode,
           forceRestart: true,
           gameEndTime: null,
-          attemptsLimit: attemptsLimit || 0
+          attemptsLimit: attemptsLimit || 0,
+          wordsPerStudent: wordsPerStudent || null
         })
       });
       if (res.ok) {
@@ -691,8 +692,8 @@ export default function App() {
 
         {curScreen === 'setup' && (
           <CustomSetup 
-             onStart={(words, m, attempts) => {
-               if (role === 'teacher') publishGame(m as GameMode, words, attempts);
+             onStart={(words, m, attempts, wordsPerStudent) => {
+               if (role === 'teacher') publishGame(m as GameMode, words, attempts, wordsPerStudent);
                setCurScreen('menu'); // returns teacher to panel
              }} 
              onBack={() => setCurScreen('menu')} 
@@ -706,6 +707,7 @@ export default function App() {
             globalEndTime={globalState.gameEndTime}
             roomPin={globalState.roomPin || localStorage.getItem('last_room_pin') || undefined}
             forcedGameStyle={globalState.selectedGameStyle}
+            wordsPerStudent={globalState.wordsPerStudent}
             onBack={() => {
              // For student, returning from game goes back to wait room.
              setCurScreen('menu');

@@ -23,20 +23,32 @@ interface GameProps {
   globalEndTime?: number | null;
   roomPin?: string;
   forcedGameStyle?: 'ahorcado' | 'sopa_letras' | 'crucigrama';
+  wordsPerStudent?: number | null;
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
 
-export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEndTime, roomPin, forcedGameStyle }) => {
+export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEndTime, roomPin, forcedGameStyle, wordsPerStudent }) => {
   const [wordData, setWordData] = useState<WordData | null>(null);
   const [guessedLetters, setGuessedLetters] = useState<Set<string>>(new Set());
   const [mistakes, setMistakes] = useState(0);
   const [gameState, setGameState] = useState<GameState>('playing');
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState<number>(60);
-  const [remainingCustomWords, setRemainingCustomWords] = useState<{word: string, hint: string}[] | null>(
-    customWords ? [...customWords] : null
-  );
+  
+  const getInitialWords = () => {
+    if (!customWords) return null;
+    let pool = [...customWords];
+    if (wordsPerStudent && wordsPerStudent > 0 && wordsPerStudent < pool.length) {
+      // Pick random subset
+      const shuffled = [...pool].sort(() => 0.5 - Math.random());
+      pool = shuffled.slice(0, wordsPerStudent);
+    }
+    return pool;
+  };
+
+  const [activeSubset, setActiveSubset] = useState<{word: string, hint: string}[] | null>(getInitialWords());
+  const [remainingCustomWords, setRemainingCustomWords] = useState<{word: string, hint: string}[] | null>(activeSubset ? [...activeSubset] : null);
 
   const isKids = mode === 'infantil';
   const maxMistakes = 3;
@@ -169,11 +181,14 @@ Instrucciones críticas:
   useEffect(() => {
     // Reset custom words pool when game mode/props change
     if (customWords) {
-      setRemainingCustomWords([...customWords]);
+      const initW = getInitialWords();
+      setActiveSubset(initW);
+      setRemainingCustomWords(initW ? [...initW] : null);
     } else {
+      setActiveSubset(null);
       setRemainingCustomWords(null);
     }
-  }, [mode, customWords]);
+  }, [mode, customWords, wordsPerStudent]);
 
   useEffect(() => {
     // Start fetching first word when remaining queue is ready or if it's default mode
@@ -389,8 +404,8 @@ Instrucciones críticas:
   };
 
   // Word arrays source
-  const activeGameWords = customWords && customWords.length > 0
-    ? customWords
+  const activeGameWords = activeSubset && activeSubset.length > 0
+    ? activeSubset
     : (isKids ? INFANTIL_WORDS : UNIVERSITARIO_WORDS);
 
   const renderCompletedModal = () => (
