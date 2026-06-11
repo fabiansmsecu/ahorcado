@@ -838,7 +838,7 @@ export default function App() {
             </div>
             
             <p className="text-sm font-bold opacity-75 mb-6">
-              Introduce el PIN para administrar la sesión. (Por defecto usa: <strong>profe123</strong>)
+              Introduce el PIN para administrar la sesión.
             </p>
 
             <form onSubmit={async (e) => {
