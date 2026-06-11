@@ -28,6 +28,30 @@ interface GameProps {
 
 const ALPHABET = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("");
 
+const INFANTIL_WORDS = [
+  { word: "GATO", hint: "Animal que maúlla y caza ratones" },
+  { word: "SOL", hint: "Estrella grande que nos da luz y calor de día" },
+  { word: "LUNA", hint: "Sale de noche en el cielo y brilla" },
+  { word: "MESA", hint: "Mueble con cuatro patas donde comemos" },
+  { word: "ROSA", hint: "Flor hermosa que tiene espinas" },
+  { word: "AGUA", hint: "Líquido transparente que bebemos cuando tenemos sed" },
+  { word: "PERRO", hint: "Animal que ladra y es el mejor amigo de las personas" },
+  { word: "PAN", hint: "Alimento horneado que se hace con harina" },
+  { word: "TREN", hint: "Vehículo largo que viaja sobre rieles" },
+  { word: "CASA", hint: "Lugar donde vives con tu familia" }
+];
+
+const UNIVERSITARIO_WORDS = [
+  { word: "PARADIGMA", hint: "Modelo, patrón o ejemplo que sirve de referencia en una ciencia o disciplina." },
+  { word: "CATEDRA", hint: "Materia particular que enseña un profesor o aula donde se imparte." },
+  { word: "EPISTEME", hint: "Conocimiento científico o saberes firmemente establecidos y fundados." },
+  { word: "SINTESIS", hint: "Composición de un todo por la reunión de sus partes o resumen descriptivo." },
+  { word: "HEURISTICA", hint: "Arte o ciencia del descubrimiento, invención o resolución pragmática de problemas." },
+  { word: "EVIDENCIA", hint: "Certeza manifiesta y tan clara que nadie puede dudar legítimamente de ella." },
+  { word: "METODOLOGIA", hint: "Conjunto de procedimientos que se siguen rigurosamente en una investigación." },
+  { word: "ANALOGIA", hint: "Relación o correspondencia lógica de semejanza entre cosas distintas." }
+];
+
 export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEndTime, roomPin, forcedGameStyle, wordsPerStudent }) => {
   const [wordData, setWordData] = useState<WordData | null>(null);
   const [guessedLetters, setGuessedLetters] = useState<Set<string>>(new Set());
@@ -52,30 +76,6 @@ export const Game: React.FC<GameProps> = ({ mode, onBack, customWords, globalEnd
 
   const isKids = mode === 'infantil';
   const maxMistakes = 3;
-
-  const INFANTIL_WORDS = [
-    { word: "GATO", hint: "Animal que maúlla y caza ratones" },
-    { word: "SOL", hint: "Estrella grande que nos da luz y calor de día" },
-    { word: "LUNA", hint: "Sale de noche en el cielo y brilla" },
-    { word: "MESA", hint: "Mueble con cuatro patas donde comemos" },
-    { word: "ROSA", hint: "Flor hermosa que tiene espinas" },
-    { word: "AGUA", hint: "Líquido transparente que bebemos cuando tenemos sed" },
-    { word: "PERRO", hint: "Animal que ladra y es el mejor amigo de las personas" },
-    { word: "PAN", hint: "Alimento horneado que se hace con harina" },
-    { word: "TREN", hint: "Vehículo largo que viaja sobre rieles" },
-    { word: "CASA", hint: "Lugar donde vives con tu familia" }
-  ];
-
-  const UNIVERSITARIO_WORDS = [
-    { word: "PARADIGMA", hint: "Modelo, patrón o ejemplo que sirve de referencia en una ciencia o disciplina." },
-    { word: "CATEDRA", hint: "Materia particular que enseña un profesor o aula donde se imparte." },
-    { word: "EPISTEME", hint: "Conocimiento científico o saberes firmemente establecidos y fundados." },
-    { word: "SINTESIS", hint: "Composición de un todo por la reunión de sus partes o resumen descriptivo." },
-    { word: "HEURISTICA", hint: "Arte o ciencia del descubrimiento, invención o resolución pragmática de problemas." },
-    { word: "EVIDENCIA", hint: "Certeza manifiesta y tan clara que nadie puede dudar legítimamente de ella." },
-    { word: "METODOLOGIA", hint: "Conjunto de procedimientos que se siguen rigurosamente en una investigación." },
-    { word: "ANALOGIA", hint: "Relación o correspondencia lógica de semejanza entre cosas distintas." }
-  ];
 
   const [selectedStyle, setSelectedStyle] = useState<'selection' | 'ahorcado' | 'crucigrama' | 'sopa_letras'>(forcedGameStyle || 'selection');
   
@@ -178,6 +178,8 @@ Instrucciones críticas:
     }
   };
 
+  const customWordsStr = customWords ? JSON.stringify(customWords) : null;
+
   useEffect(() => {
     // Reset custom words pool when game mode/props change
     if (customWords) {
@@ -188,14 +190,14 @@ Instrucciones críticas:
       setActiveSubset(null);
       setRemainingCustomWords(null);
     }
-  }, [mode, customWords, wordsPerStudent]);
+  }, [mode, customWordsStr, wordsPerStudent]);
 
   useEffect(() => {
     // Start fetching first word when remaining queue is ready or if it's default mode
     if ((customWords && remainingCustomWords === null) && !loading) return; 
     // ^ just a small check to let the previous effect run first
     fetchWord();
-  }, [mode, customWords]); // Re-fetch initial word when mode or custom logic changes
+  }, [mode, customWordsStr]); // Re-fetch initial word when mode or custom logic changes
 
   useEffect(() => {
     if (!wordData || gameState !== 'playing') return;
