@@ -225,7 +225,7 @@ Instrucciones críticas:
     }, 1000);
 
     return () => clearInterval(timerId);
-  }, [globalEndTime, timeLeft, wordData, gameState]);
+  }, [globalEndTime, wordData, gameState]);
 
   useEffect(() => {
     if (!wordData || gameState !== 'playing') return;
